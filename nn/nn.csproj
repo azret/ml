@@ -63,5 +63,12 @@
     <Compile Include="optimizer.cs" />
     <Compile Include="tensor.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="cuda\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="cpu\MatMul.asm" />
+    <Content Include="cpu\MatMul.c" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

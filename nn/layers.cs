@@ -140,7 +140,11 @@
 
 
     [DebuggerDisplay("({_in_features}, {_out_features})")]
-    public unsafe class Linear : ILayer {
+    public unsafe class Linear<T_MatMul_Impl> : ILayer
+        where T_MatMul_Impl : F.MatMul, new() {
+
+        T_MatMul_Impl _MatMul_Impl;
+
         Tensor _In, _Out;
 
         public readonly uint _in_features;
@@ -166,9 +170,15 @@
             _Bias = bias
                 ? new Tensor(checked(out_features), requires_grad: true)
                 : null;
+
+            _MatMul_Impl = new T_MatMul_Impl();
         }
 
         public void Dispose() {
+            if (_MatMul_Impl != null)
+                _MatMul_Impl.Dispose();
+            _MatMul_Impl = null;
+
             if (_Out != null)
                 _Out.Dispose();
             _Out = null;
@@ -219,7 +229,7 @@
 
             _In.memcpy(input.data, N);
 
-            F.matmul_forward_cpu(
+            _MatMul_Impl.forward(
                 _Out.data,
                 _In.data,
                 _Weight.data,
@@ -240,7 +250,7 @@
 
             _In.zero_grad();
 
-            F.matmul_backward_cpu(
+            _MatMul_Impl.backward(
                 output,
                 _In,
                 _Weight,

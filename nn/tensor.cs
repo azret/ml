@@ -8,6 +8,16 @@
 
     [DebuggerDisplay("{Tensor.memsize(numbytes)}")]
     public unsafe sealed partial class Tensor : CriticalFinalizerObject, IDisposable {
+        public static Tensor zeros(uint numel, bool requires_grad = false) {
+            return new Tensor(numel, requires_grad);
+        }
+
+        public static Tensor ones(uint numel, bool requires_grad = false) {
+            var tensor = new Tensor(numel, requires_grad);
+            tensor.fill_(1f);
+            return tensor;
+        }
+
         public static string memsize(ulong size) {
             string[] sizes = { "B", "KiB", "MiB", "GiB", "TiB" };
             double len = size;

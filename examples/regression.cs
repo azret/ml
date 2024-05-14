@@ -71,7 +71,7 @@ internal unsafe class regression {
         Console.WriteLine($"W_target: {pretty_logits(W_target.data, W_target.numel())}");
         Console.WriteLine($"b_target: {pretty_logits(b_target.data, b_target.numel())}");
 
-        var fc = new nn.Linear(POLY_DEGREE, 1);
+        var fc = new nn.Linear<F.MatMulV>(POLY_DEGREE, 1);
 
         nn.rand.kaiming_uniform_(
             fc._Weight.data,
