@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34728.123
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "nn", "nn\nn.csproj", "{EE1F14EE-84DE-4A61-BBD6-0350E2AF4787}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{043BA01D-6191-4B0F-8AF3-22454479C2FD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "regression", "examples\regression.csproj", "{1E66BC40-85D0-4CE4-A08D-3CB086A85242}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EE1F14EE-84DE-4A61-BBD6-0350E2AF4787}.Debug|x64.ActiveCfg = Debug|x64
+		{EE1F14EE-84DE-4A61-BBD6-0350E2AF4787}.Debug|x64.Build.0 = Debug|x64
+		{EE1F14EE-84DE-4A61-BBD6-0350E2AF4787}.Release|x64.ActiveCfg = Release|x64
+		{EE1F14EE-84DE-4A61-BBD6-0350E2AF4787}.Release|x64.Build.0 = Release|x64
+		{1E66BC40-85D0-4CE4-A08D-3CB086A85242}.Debug|x64.ActiveCfg = Debug|x64
+		{1E66BC40-85D0-4CE4-A08D-3CB086A85242}.Debug|x64.Build.0 = Debug|x64
+		{1E66BC40-85D0-4CE4-A08D-3CB086A85242}.Release|x64.ActiveCfg = Release|x64
+		{1E66BC40-85D0-4CE4-A08D-3CB086A85242}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1E66BC40-85D0-4CE4-A08D-3CB086A85242} = {043BA01D-6191-4B0F-8AF3-22454479C2FD}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {AFA16BCF-49EC-4271-AFF1-293DCDE44D36}
+	EndGlobalSection
+EndGlobal
