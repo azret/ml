@@ -38,6 +38,10 @@ class MLP(torch.nn.Module):
 if __name__ == "__main__":
     torch.manual_seed(137)
 
+    import os
+
+    os.environ["OMP_NUM_THREADS"] = "1"
+
     model = MLP()
 
     print(f"parameters: {model.get_num_params()}")
@@ -52,7 +56,7 @@ if __name__ == "__main__":
     x = torch.zeros(batch_size, 768);
     y = torch.ones(batch_size, 768);
 
-    epochs = 100
+    epochs = 1000
 
     for epoch in range(epochs):
         start_time = time.time()

@@ -106,7 +106,6 @@
         }
 
         public override void update() {
-
             uint i = 0, p;
 
             if (m_memory == null) {
@@ -118,10 +117,8 @@
                 m_memory = (float*)malloc(i * (uint)sizeof(float));
                 v_memory = (float*)malloc(i * (uint)sizeof(float));
 
-                memset(
-                    m_memory, 0, i * sizeof(float));
-                memset(
-                    v_memory, 0, i * sizeof(float));
+                memset(m_memory, 0, i * sizeof(float));
+                memset(v_memory, 0, i * sizeof(float));
             }
 
             for (p = 0, i = 0; p < _params.Length; p++) {

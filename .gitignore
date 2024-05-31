@@ -16,3 +16,15 @@
 /examples/bin
 /examples/DATA
 
+/dev/.vs
+/dev/obj
+/dev/bin
+/dev/DATA
+
+/tools/coff/.vs
+/tools/coff/obj
+/tools/coff/bin
+/tools/coff/DATA
+
+/dev/x64
+/x64

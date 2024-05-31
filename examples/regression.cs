@@ -71,7 +71,7 @@ internal unsafe class regression {
         Console.WriteLine($"W_target: {pretty_logits(W_target.data, W_target.numel())}");
         Console.WriteLine($"b_target: {pretty_logits(b_target.data, b_target.numel())}");
 
-        var fc = new nn.Linear<F.MatMulV>(POLY_DEGREE, 1);
+        var fc = new nn.Linear<F.MatMulAVX2>(POLY_DEGREE, 1);
 
         nn.rand.kaiming_uniform_(
             fc._Weight.data,
@@ -103,7 +103,7 @@ internal unsafe class regression {
             fc._Weight.zero_grad();
             fc._Bias.zero_grad();
 
-            var input = new Tensor(batch.Item1);
+            var input = Tensor.from(batch.Item1);
 
             var logits = fc.forward(input);
 

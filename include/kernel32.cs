@@ -64,19 +64,10 @@ public static class kernel32 {
     [DllImport("kernel32.dll", EntryPoint = "RtlFillMemory", SetLastError = false)]
     public static extern unsafe void FillMemory(void* destination, UIntPtr length, byte fill);
 
-    // Allocates fixed memory.The return value is a pointer to the memory object.
-    public const int LMEM_FIXED = 0x0000;
-
-    // Initializes memory contents to zero.
-    public const int LMEM_ZEROINIT = 0x0040;
-
-    // Combines LMEM_FIXED and LMEM_ZEROINIT;
-    public const int LPTR = 0x0040;
-
-    // Allocates fixed or movable memory.
-    // If the memory is a locked LMEM_MOVEABLE memory block or a LMEM_FIXED memory block and this flag is not specified,
-    // the memory can only be reallocated in place.
-    public const int LMEM_MOVEABLE = 0x0002;
+    public const int LMEM_FIXED          = 0x0000;
+    public const int LMEM_ZEROINIT       = 0x0040;
+    public const int LPTR                = 0x0040;
+    public const int LMEM_MOVEABLE       = 0x0002;
 
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern unsafe void* LocalAlloc(int uFlags, UIntPtr length);

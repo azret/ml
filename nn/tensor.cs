@@ -6,50 +6,37 @@
 
     using static std;
 
-    [DebuggerDisplay("{Tensor.memsize(numbytes)}")]
+    public enum Device {
+        CPU,
+        CUDA
+    }
+
+    [DebuggerDisplay("{global::std.memsize(numbytes)} ({device})")]
     public unsafe sealed partial class Tensor : CriticalFinalizerObject, IDisposable {
         public static Tensor zeros(uint numel, bool requires_grad = false) {
             return new Tensor(numel, requires_grad);
         }
 
         public static Tensor ones(uint numel, bool requires_grad = false) {
-            var tensor = new Tensor(numel, requires_grad);
-            tensor.fill_(1f);
-            return tensor;
+            var T = new Tensor(numel, requires_grad);
+            T.fill_(1f);
+            return T;
         }
 
-        public static string memsize(ulong size) {
-            string[] sizes = { "B", "KiB", "MiB", "GiB", "TiB" };
-            double len = size;
-            int order = 0;
-            while (len >= 1024 && order < sizes.Length - 1) {
-                order++;
-                len = len / 1024;
+        public static Tensor from(float[] other, bool requires_grad = false) {
+            var T = new Tensor((uint)other.Length, requires_grad);
+            for (uint t = 0; t < T.numel(); t++) {
+                T.data[t] = other[t];
             }
-            return string.Format("{0:0.##} {1}", len, sizes[order]);
+            return T;
         }
 
         const ulong ALIGNMENT = 4096ul;
 
         uint _numel;
 
-        IntPtr h_data, h_grad;
-
-        public readonly float* data, grad;
-
-        public Tensor(uint numel, bool requires_grad = true)
-            : base() {
-            _numel = numel;
-            Alloc(requires_grad, out data, out grad);
-        }
-
-        public Tensor(float[] input, bool requires_grad = true)
-            : base() {
-            _numel = (uint)input.Length;
-            Alloc(requires_grad, out data, out grad);
-            for (uint t = 0; t < _numel; t++) {
-                data[t] = input[t];
-            }
+        public Tensor(uint numel, bool requires_grad = true) : base() {
+            alloc_cpu(numel, requires_grad, out data, out grad);
         }
 
         ~Tensor() {
@@ -57,47 +44,55 @@
         }
 
         public void Dispose() {
-            Free();
+            free_cpu();
             GC.SuppressFinalize(this);
         }
 
-        void Alloc(bool requires_grad, out float* data, out float* grad) {
-            data = null; grad = null;
-            if (_numel > 0) {
-                h_data = (IntPtr)malloc(ALIGNMENT + (ulong)_numel * sizeof(float));
-                memset((void*)h_data,
-                    0,
-                    ALIGNMENT + sizeof(float) * (ulong)_numel);
+        IntPtr h_ua_data, h_ua_grad;
+
+        void alloc_cpu(uint numel, bool requires_grad, out float* data, out float* grad) {
+            try {
+                _numel = numel; data = null; grad = null;
+                if (_numel > 0) {
+                    h_ua_data = (IntPtr)malloc(ALIGNMENT + (ulong)_numel * sizeof(float));
+                    memset((void*)h_ua_data, 0, ALIGNMENT + sizeof(float) * (ulong)_numel);
+                }
+                if (_numel > 0 && requires_grad) {
+                    h_ua_grad = (IntPtr)malloc(ALIGNMENT + (ulong)_numel * sizeof(float));
+                    memset((void*)h_ua_grad, 0, ALIGNMENT + sizeof(float) * (ulong)_numel);
+                }
+                // We need to ensure that the host memory is aligned to 4K
+                if (h_ua_data != null) data = (float*)(((ulong)h_ua_data + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
+                if (h_ua_grad != null) grad = (float*)(((ulong)h_ua_grad + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
+            } catch {
+                data = null;
+                grad = null;
+                _numel = 0;
+                if (h_ua_grad != null) global::std.free((void*)h_ua_grad);
+                if (h_ua_data != null) global::std.free((void*)h_ua_data);
+                throw;
             }
-            if (_numel > 0 && requires_grad) {
-                h_grad = (IntPtr)malloc(ALIGNMENT + (ulong)_numel * sizeof(float));
-                memset((void*)h_grad,
-                    0,
-                    ALIGNMENT + sizeof(float) * (ulong)_numel);
-            }
-            // We need to ensure that the host memory is aligned to 4K
-            if (h_data != null)
-                data = (float*)(((ulong)h_data + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
-            if (h_grad != null)
-                grad = (float*)(((ulong)h_grad + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
         }
 
-        void Free() {
-            free((void*)Interlocked.Exchange(
-                ref h_data,
-                IntPtr.Zero));
-            free((void*)Interlocked.Exchange(
-                ref h_grad,
-                IntPtr.Zero));
+        void free_cpu() {
+            global::std.free((void*)Interlocked.Exchange(ref h_ua_data, IntPtr.Zero));
+            global::std.free((void*)Interlocked.Exchange(ref h_ua_grad, IntPtr.Zero));
         }
+
+
+        public readonly float* data;
+
+        public readonly float* grad;
+
+        public readonly Device device;
 
         public ulong numbytes {
             get {
                 ulong numbytes = 0;
-                if (h_data != null) {
+                if (h_ua_data != null) {
                     numbytes += ALIGNMENT + (ulong)_numel * sizeof(float);
                 }
-                if (h_grad != null) {
+                if (h_ua_grad != null) {
                     numbytes += ALIGNMENT + (ulong)_numel * sizeof(float);
                 }
                 return numbytes;

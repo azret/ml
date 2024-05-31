@@ -75,7 +75,7 @@ internal unsafe class regression {
 
         var lr = 1e-3f;
 
-        var optimizer = new nn.AdamW(model.parameters(), lr: lr);
+        var optimizer = new nn.AdamW(model.parameters(), lr: 0);
 
         Console.WriteLine($"parameters: {optimizer.get_num_params()}");
 
@@ -85,16 +85,19 @@ internal unsafe class regression {
             var start_time = kernel32.millis();
             var logits = model.forward(x);
             optimizer.zero_grad();
-            var loss = F.binary_cross_entropy(logits, y);
+
+            // var loss = F.binary_cross_entropy(logits, y);
+            var loss = F.no_loss(logits, y);
+
             model.backward(logits);
             optimizer.step();
 
             var elapsedMillis = (kernel32.millis() - start_time);
 
+            Console.WriteLine($"{epoch}: lr = {lr}, loss={loss:f6}, {elapsedMillis} ms");
+
             if (epoch == epochs - 1)
                 Console.WriteLine(pretty_logits(logits.data, logits.numel()));
-
-            Console.WriteLine($"{epoch}: lr = {lr}, loss={loss:f6}, {elapsedMillis} ms");
         }
 
         Console.ReadKey();

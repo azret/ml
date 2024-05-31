@@ -58,6 +58,7 @@
       <Link>include\std.cs</Link>
     </Compile>
     <Compile Include="F.cs" />
+    <Compile Include="cpu\MatMul.cs" />
     <Compile Include="rand.cs" />
     <Compile Include="layers.cs" />
     <Compile Include="optimizer.cs" />
@@ -69,6 +70,10 @@
   <ItemGroup>
     <Content Include="cpu\MatMul.asm" />
     <Content Include="cpu\MatMul.c" />
+    <Content Include="cpu\MatMul.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cpu\MatMul.bat" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -271,6 +271,17 @@ public static partial class std {
             fill);
     }
 
+    public static string memsize(ulong size) {
+        string[] sizes = { "B", "KiB", "MiB", "GiB", "TiB" };
+        double len = size;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1) {
+            order++;
+            len = len / 1024;
+        }
+        return string.Format("{0:0.##} {1}", len, sizes[order]);
+    }
+
     public static void printf(string fmt, params object[] args) {
         fprintf(Console.Out, fmt, args);
     }
