@@ -260,7 +260,9 @@ internal unsafe class iris {
         }
         Console.ResetColor();
 
-        Console.WriteLine("Press any key to continue...");
-        Console.ReadKey();
+        if (Debugger.IsAttached) {
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadKey();
+        }
     }
 }
