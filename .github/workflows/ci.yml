@@ -34,9 +34,6 @@ jobs:
       - name: TEST
         run: dotnet test
 
-      - name: TEST (IRIS)
-        if: matrix.os == 'windows-latest'
-        shell: cmd
-        run: |
-          echo $env:Configuration
+      - name: IRIS
+        run: dotnet run --project tests/iris.csproj
 

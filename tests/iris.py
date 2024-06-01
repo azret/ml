@@ -85,6 +85,10 @@ def pretty_array(logits0):
 if __name__ == "__main__":
     import argparse
 
+    from pathlib import Path
+
+    path = Path(__file__).parent.absolute()
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--optim", type=str, default="SGD")
@@ -97,7 +101,7 @@ if __name__ == "__main__":
     assert 0 <= args.lr <= 1
     assert args.loss in {"BCELoss", "MSELoss"}
 
-    data = np.loadtxt('iris.csv', usecols=range(0,7), delimiter=",", skiprows=0, dtype=np.float32)
+    data = np.loadtxt(str(path) + '//iris.csv', usecols=range(0,7), delimiter=",", skiprows=0, dtype=np.float32)
 
     def get_batch(B):
         assert B <= len(data), "not enough items for the specified batch size"

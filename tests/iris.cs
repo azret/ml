@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 
 using nn;
 
@@ -75,8 +76,8 @@ internal unsafe class iris {
         }
     }
 
-    static void run(TextWriter Console, string optim, string loss_fn, float lr) {
-        var data = File.ReadAllLines("iris.csv");
+    static void run(TextWriter Console, string data_file, string optim, string loss_fn, float lr) {
+        var data = File.ReadAllLines(data_file);
 
         // test data loader batching
 
@@ -216,11 +217,18 @@ internal unsafe class iris {
     }
 
     static void Main() {
-        string rootPath = "D:\\SRC\\nn.cs\\tests\\";
+        Console.WriteLine(Assembly.GetExecutingAssembly().Location);
+
+        string rootPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        if (!Path.EndsInDirectorySeparator(rootPath)) {
+            rootPath += Path.DirectorySeparatorChar;
+        }
+
+        Console.WriteLine($"PATH: {rootPath}");
 
         Console.WriteLine("Testing SGD...");
         var OUT = File.CreateText(rootPath + "iris.csharp.SGD.txt");
-        run(OUT, "SGD", "MSELoss", 1e-3f);
+        run(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-3f);
         OUT.Flush();
         OUT.Close();
 
@@ -241,7 +249,7 @@ internal unsafe class iris {
 
         Console.WriteLine("Testing AdamW...");
         OUT = File.CreateText(rootPath + "iris.csharp.AdamW.txt");
-        run(OUT, "AdamW", "BCELoss", 1e-6f);
+        run(OUT, rootPath + "iris.csv", "AdamW", "BCELoss", 1e-6f);
         OUT.Flush();
         OUT.Close();
 
