@@ -2,6 +2,7 @@
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
+    using static nn.F;
 
     public interface ICompute {
         Tensor forward(Tensor input);
@@ -71,77 +72,6 @@
                 output = _M[m].backward(output);
             }
             return output;
-        }
-    }
-
-    public unsafe class Sigmoid : ILayer {
-        Tensor _In, _Out;
-
-        public void Dispose() {
-            if (_Out != null) _Out.Dispose();
-            _Out = null;
-            if (_In != null) _In.Dispose();
-            _In = null;
-        }
-
-        public IEnumerable<Tensor> parameters() { yield break; }
-
-        protected virtual void forward(
-            float* _Out,       /* [N] */
-            float* _In,        /* [N] */
-            uint N) {
-
-            F.sigmoid_forward_cpu(
-                _Out,
-                _In,
-                N);
-        }
-
-        public Tensor forward(Tensor input) {
-            uint N = input.numel();
-
-            // Dynamically create space for input and output to accommodate the batch size
-
-            if (_In is null) {
-                _In = new Tensor(N, requires_grad: true);
-            } else {
-                if (_In.numel() != N) {
-                    _In.resize((N));
-                }
-            }
-            if (_Out is null) {
-                _Out = new Tensor(N, requires_grad: true);
-            } else {
-                if (_Out.numel() != N) {
-                    _Out.resize((N));
-                }
-            }
-
-            _In.memcpy(input.data, N);
-
-            forward(
-                _Out.data,
-                _In.data,
-                N);
-
-            return _Out;
-        }
-
-        public Tensor backward(Tensor output) {
-            uint N = _In.numel();
-
-            if (output.numel() != N) throw new InvalidOperationException();
-
-            _In.zero_grad();
-
-            F.sigmoid_backward_cpu(
-                output.data,
-                output.grad,
-                _In.data,
-                _In.grad,
-                N);
-
-            return _In;
         }
     }
 
@@ -216,12 +146,85 @@
         }
     }
 
-    [DebuggerDisplay("({_in_features}, {_out_features})")]
-    public unsafe class Linear : ILayer {
+    public unsafe class Sigmoid : ILayer {
         Tensor _In, _Out;
 
-        public readonly uint _in_features;
-        public readonly uint _out_features;
+        public void Dispose() {
+            if (_Out != null) _Out.Dispose();
+            _Out = null;
+            if (_In != null) _In.Dispose();
+            _In = null;
+        }
+
+        public IEnumerable<Tensor> parameters() { yield break; }
+
+        protected virtual void forward(
+            float* _Out,       /* [N] */
+            float* _In,        /* [N] */
+            uint N) {
+
+            F.sigmoid_forward_cpu(
+                _Out,
+                _In,
+                N);
+        }
+
+        public Tensor forward(Tensor input) {
+            uint N = input.numel();
+
+            // Dynamically create space for input and output to accommodate the batch size
+
+            if (_In is null) {
+                _In = new Tensor(N, requires_grad: true);
+            } else {
+                if (_In.numel() != N) {
+                    _In.resize((N));
+                }
+            }
+            if (_Out is null) {
+                _Out = new Tensor(N, requires_grad: true);
+            } else {
+                if (_Out.numel() != N) {
+                    _Out.resize((N));
+                }
+            }
+
+            _In.memcpy(input.data, N);
+
+            forward(
+                _Out.data,
+                _In.data,
+                N);
+
+            return _Out;
+        }
+
+        public Tensor backward(Tensor output) {
+            uint N = _In.numel();
+
+            if (output.numel() != N) throw new InvalidOperationException();
+
+            _In.zero_grad();
+
+            F.sigmoid_backward_cpu(
+                output.data,
+                output.grad,
+                _In.data,
+                _In.grad,
+                N);
+
+            return _In;
+        }
+    }
+
+    [DebuggerDisplay("({_in_features}, {_out_features})")]
+    public unsafe class Linear<T_MatMul> : ILayer where T_MatMul: MatMul, new() {
+        T_MatMul _MatMul_Impl;
+
+        Tensor _In, _Out;
+
+        public readonly uint I;
+        public readonly uint O;
 
         public readonly Tensor weight;
         public readonly Tensor bias;
@@ -233,15 +236,18 @@
             if (out_features <= 0 || out_features >= short.MaxValue / 2) {
                 throw new ArgumentOutOfRangeException(nameof(out_features));
             }
-            _in_features = (uint)in_features;
-            _out_features = (uint)out_features;
-            weight = new Tensor(checked(_out_features * _in_features), requires_grad: true);
+            _MatMul_Impl = new T_MatMul();
+            I = (uint)in_features;
+            O = (uint)out_features;
+            weight = new Tensor(checked(O * I), requires_grad: true);
             bias = use_bias
-                ? new Tensor(_out_features, requires_grad: true)
+                ? new Tensor(O, requires_grad: true)
                 : null;
         }
 
         public void Dispose() {
+            if (_MatMul_Impl != null) _MatMul_Impl.Dispose();
+            _MatMul_Impl = null;
             if (_Out != null) _Out.Dispose();
             _Out = null;
             if (_In != null) _In.Dispose();
@@ -255,102 +261,60 @@
             if (bias != null) yield return bias;
         }
 
-        protected virtual void forward(
-            float* _Out,       /* [B, O] */
-            float* _In,        /* [B, I] */
-            float* _Weight,    /* [I, O] */
-            float* _Bias,      /* [O] */
-            uint B,
-            uint I,
-            uint O) {
-
-            F.matmul_forward_cpu(
-                _Out,
-                _In,
-                _Weight,
-                _Bias,
-                B,
-                I,
-                O);
-        }
-
-        protected virtual void backward(
-            float* _Out,       /* [B, O] */
-            float* d_Out,       /* [B, O] */
-            float* _In,        /* [B, I] */
-            float* d_In,        /* [B, I] */
-            float* _Weight,    /* [I, O] */
-            float* d_Weight,    /* [I, O] */
-            float* _Bias,      /* [O] */
-            float* d_Bias,      /* [O] */
-            uint B,
-            uint I,
-            uint O) {
-
-            F.matmul_backward_cpu(
-                _Out,
-                d_Out,
-                _In,
-                d_In,
-                _Weight,
-                d_Weight,
-                _Bias,
-                d_Bias,
-                B,
-                I,
-                O);
-        }
-
         public Tensor forward(Tensor input) {
+            if (_MatMul_Impl == null) throw new ObjectDisposedException(GetType().FullName);
+
             uint N = input.numel();
 
             // Dynamically create space for input and output to accommodate the batch size
 
-            uint B = (N + _in_features - 1) / _in_features;
+            uint B = (N + I - 1) / I;
 
-            if (B * _in_features != N) throw new ArgumentOutOfRangeException(nameof(input));
+            if (B * I != N) throw new ArgumentOutOfRangeException(nameof(input));
 
             if (_In is null) {
                 _In = new Tensor(N, requires_grad: true);
             } else {
-                if (_In.numel() != B * _in_features) {
-                    _In.resize(B * _in_features);
+                if (_In.numel() != B * I) {
+                    _In.resize(B * I);
                 }
             }
 
             if (_Out is null) {
-                _Out = new Tensor(B * _out_features, requires_grad: true);
+                _Out = new Tensor(B * O, requires_grad: true);
             } else {
-                if (_Out.numel() != B * _out_features) {
-                    _Out.resize(B * _out_features);
+                if (_Out.numel() != B * O) {
+                    _Out.resize(B * O);
                 }
             }
 
             _In.memcpy(input.data, N);
 
-            forward(
+            _MatMul_Impl.forward(
                 _Out.data,
                 _In.data,
                 weight.data,
                 bias != null ? bias.data : null,
                 B,
-                _in_features,
-                _out_features);
+                I,
+                O);
 
             return _Out;
         }
 
         public Tensor backward(Tensor output) {
+            if (_MatMul_Impl == null) throw new ObjectDisposedException(GetType().FullName);
+
             uint N = output.numel();
 
-            uint B = (N + _out_features - 1) / _out_features;
+            uint B = (N + O - 1) / O;
 
-            if (_Out.numel() != B * _out_features || _In.numel() != B * _in_features)
+            if (_Out.numel() != B * O || _In.numel() != B * I)
                 throw new ArgumentOutOfRangeException(nameof(output));
 
             _In.zero_grad();
 
-            backward(
+            _MatMul_Impl.backward(
                 output.data,
                 output.grad,
                 _In.data,
@@ -360,8 +324,8 @@
                 bias != null ? bias.data : null,
                 bias != null ? bias.grad : null,
                 B,
-                _in_features,
-                _out_features);
+                I,
+                O);
 
             return _In;
         }

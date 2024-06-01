@@ -1,6 +1,6 @@
-﻿using System;
+﻿namespace nn {
+    using System;
 
-namespace nn {
     public interface IRNG {
         uint randint32();
         float randfloat32();

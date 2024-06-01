@@ -1,78 +1,12 @@
 using System;
-
-using static cuda;
+using nn.CPU;
 using static kernel32;
-using static nvrtc;
 using static std;
 
 namespace nn.dev {
-    unsafe static class MatMul_ {
-        public class cuMatMulA : CPU.F.MatMulA {
-            static string CU = @"
+    static unsafe partial class MatMul_ {
 
-extern ""C"" __global__  void matmul_forward_cu(
-    float* _Out,       /* [B, O] */
-    float* _In,        /* [B, I] */
-    float* _Weight,    /* [I, O] */
-    float* _Bias,      /* [O] */
-    int B,
-    int I,
-    int O) {
-
-    int bo = blockIdx.x * blockDim.x + threadIdx.x;
-
-    int b = bo / O;
-    int o = bo % O;
-
-    if (b < B && o < O) {
-    
-       _Out[b * O + o] = _Bias ? _Bias[o] : 0;
-    
-       for (int i = 0; i < I; i++) {
-           _Out[b * O + o] += _Weight[o * I + i] * _In[b * I + i];
-       }
-    
-    }
-
-}
-
-";
-            IntPtr _matmul_forward_cu;
-
-            public cuMatMulA() {
-                printf("> Compiling CUDA kernels...\n");
-                byte[] ptx = nvrtcCompileFromSourceCode(CU, "matmul_forward_cu");
-                checkCudaErrors(cuModuleLoadData(out var cuModule, ptx));
-                checkCudaErrors(cuModuleGetFunction(
-                    out _matmul_forward_cu,
-                    cuModule,
-                    "matmul_forward_cu"));
-                printf("> Done.\n\n");
-            }
-
-            protected override void Dispose(bool disposing) {
-                base.Dispose(disposing);
-            }
-
-            public override unsafe void forward(float* _Out, float* _In, float* _Weight, float* _Bias, uint B, uint I, uint O) {
-
-                uint block_size = 1024;
-
-                void*[] args = { &_Out, &_In, &_Weight, &_Bias, &B, &I, &O };
-
-                checkCudaErrors(cuLaunchKernel(
-                    _matmul_forward_cu,
-                    CEIL_DIV((uint)(B * O), block_size), 1, 1,
-                    block_size, 1, 1,
-                    0,
-                    IntPtr.Zero,
-                    args,
-                    null));
-
-            }
-        }
-
-        static nn.CPU.F.MatMul[] kernels;
+        static F.MatMul[] kernels;
 
         static unsafe int Main() {
             // checkCudaErrors(cuInit());
@@ -84,10 +18,12 @@ extern ""C"" __global__  void matmul_forward_cu(
 
             Console.WriteLine();
 
-            kernels = new nn.CPU.F.MatMul[]
+            kernels = new F.MatMul[]
             {
-                    new CPU.F.MatMulA(),
-                    new CPU.F.MatMulAVX2(),
+                new F.MatMul(),
+                new MatMulC(),
+                new MatMulAVX(),
+                new MatMulAVX2(),
             };
 
             uint B = 32;
@@ -119,11 +55,15 @@ extern ""C"" __global__  void matmul_forward_cu(
                 I,
                 O);
 
-            CPU.F.matmul_backward_cpu(
-                _Out,
-                _In,
-                _Weight,
-                _Bias,
+            F.matmul_backward_cpu(
+                _Out.data,
+                _Out.grad,
+                _In.data,
+                _In.grad,
+                _Weight.data,
+                _Weight.grad,
+                _Bias.data,
+                _Bias.grad,
                 B,
                 I,
                 O);
@@ -156,21 +96,27 @@ extern ""C"" __global__  void matmul_forward_cu(
                 for (int i = 0; i < _Out_Tmp.numel(); i++) { _Out_Tmp.data[i] = urandf(&seed) * 2.0f - 1.0f; }
                 for (int i = 0; i < _Out_Tmp.numel(); i++) { _Out_Tmp.grad[i] = urandf(&seed) * 2.0f - 1.0f; }
 
-                MatMul.forward(_Out_Tmp.data,
-                               _In_Tmp.data,
-                               _Weight_Tmp.data,
-                               _Bias_Tmp.data,
-                               B,
-                               I,
-                               O);
+                MatMul.forward(
+                    _Out_Tmp.data,
+                    _In_Tmp.data,
+                    _Weight_Tmp.data,
+                    _Bias_Tmp.data,
+                    B,
+                    I,
+                    O);
 
-                MatMul.backward(_Out_Tmp,
-                                _In_Tmp,
-                                _Weight_Tmp,
-                                _Bias_Tmp,
-                                B,
-                                I,
-                                O);
+                MatMul.backward(
+                    _Out_Tmp.data,
+                    _Out_Tmp.grad,
+                    _In_Tmp.data,
+                    _In_Tmp.grad,
+                    _Weight_Tmp.data,
+                    _Weight_Tmp.grad,
+                    _Bias_Tmp.data,
+                    _Bias_Tmp.grad,
+                    B,
+                    I,
+                    O);
 
                 Console.WriteLine($"== kernel #{kernel} ({kernels[kernel].GetType()}) ==");
 
@@ -214,10 +160,14 @@ extern ""C"" __global__  void matmul_forward_cu(
                 start = millis();
                 for (int i = 0; i < 64; i++) {
                     MatMul.backward(
-                        _Out_Tmp,
-                        _In_Tmp,
-                        _Weight_Tmp,
-                        _Bias_Tmp,
+                        _Out_Tmp.data,
+                        _Out_Tmp.grad,
+                        _In_Tmp.data,
+                        _In_Tmp.grad,
+                        _Weight_Tmp.data,
+                        _Weight_Tmp.grad,
+                        _Bias_Tmp.data,
+                        _Bias_Tmp.grad,
                         B,
                         I,
                         O);

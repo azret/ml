@@ -1,7 +1,8 @@
-﻿using System;
-using System.Runtime.ConstrainedExecution;
+﻿namespace nn {
+    using System;
+    using System.Runtime.ConstrainedExecution;
+    using System.Runtime.InteropServices;
 
-namespace nn {
     public static unsafe partial class F {
         public unsafe class Kernel : CriticalFinalizerObject, IDisposable {
             ~Kernel() {
@@ -30,14 +31,14 @@ namespace nn {
         public static double mse_loss(
             float* _Out,       /* [N] */
             float* d_Out,       /* [N] */
+            uint N,
             float[] target) {
 
             if (_Out == null) throw new ArgumentNullException(nameof(_Out));
             if (d_Out == null) throw new ArgumentNullException(nameof(d_Out));
 
             if (target is null) throw new ArgumentNullException(nameof(target));
-            
-            int N = target.Length;
+            if (target.Length != N) throw new ArgumentException("size mismatch", nameof(target));
 
             double sum = 0f;
 
@@ -61,14 +62,15 @@ namespace nn {
 
             int N = target.Length;
 
-            double sum = 0;
+            double acc = 0;
 
             for (int n = 0; n < N; n++) {
 
                 if (output.data[n] < 0f || output.data[n] > 1f || float.IsNaN(output.data[n])) throw new ArgumentOutOfRangeException(nameof(target), $"all elements of '{nameof(output)}' should be between 0 and 1");
                 if (target[n] < 0f || target[n] > 1f || float.IsNaN(target[n])) throw new ArgumentOutOfRangeException(nameof(target), $"all elements of '{nameof(target)}' should be between 0 and 1");
 
-                sum += -(Math.Log(output.data[n] + EPSILON) * target[n] + (1.0 - target[n]) * Math.Log(1.0 - output.data[n] + EPSILON));
+                acc += -(Math.Log(output.data[n] + EPSILON) * target[n]
+                          + (1.0 - target[n]) * Math.Log(1.0 - output.data[n] + EPSILON));
 
                 output.grad[n] = (float)((output.data[n] - target[n]) /
                     Math.Max(
@@ -76,9 +78,9 @@ namespace nn {
                         EPSILON) / N);
             }
 
-            sum /= N;
+            acc /= N;
 
-            return sum;
+            return acc;
         }
 
         public static unsafe void relu_forward_cpu(
@@ -87,10 +89,10 @@ namespace nn {
             uint N) {
 
             for (int n = 0; n < N; n++) {
-                var σ = _In[n];
-                if (σ <= 0)
-                    σ = 0;
-                _Out[n] = σ;
+                var y = _In[n];
+                if (y <= 0)
+                    y = 0;
+                _Out[n] = y;
             }
         }
 
@@ -102,8 +104,8 @@ namespace nn {
             uint N) {
 
             for (int n = 0; n < N; n++) {
-                var σ = _In[n];
-                if (σ > 0)
+                var y = _In[n];
+                if (y > 0)
                     d_In[n] += d_Out[n];
             }
         }
@@ -114,7 +116,9 @@ namespace nn {
             uint N) {
 
             for (int n = 0; n < N; n++) {
-                var σ = 1.0f / (1.0f + (float)Math.Exp(-_In[n]));
+                var σ = 1.0f
+                        / (1.0f + (float)Math.Exp(-_In[n]));
+
                 _Out[n] = σ;
             }
         }
@@ -127,7 +131,9 @@ namespace nn {
             uint N) {
 
             for (int n = 0; n < N; n++) {
-                var σ = 1.0f / (1.0f + (float)Math.Exp(-_In[n]));
+                var σ = 1.0f
+                        / (1.0f + (float)Math.Exp(-_In[n]));
+
                 d_In[n] += σ * (1.0f - σ) * d_Out[n];
             }
         }
@@ -172,17 +178,89 @@ namespace nn {
                 float* p_In = _In + b * I;
                 float* p_d_In = d_In + b * I;
                 for (int o = 0; o < O; o++) {
-                    float δf = d_Out[b * O + o];
+                    float grad = d_Out[b * O + o];
                     float* p_Weight = _Weight + o * I;
                     float* p_d_Weight = d_Weight + o * I;
                     for (int i = 0; i < I; i++) {
-                        p_d_In[i] += p_Weight[i] * δf;
-                        p_d_Weight[i] += p_In[i] * δf;
+                        p_d_In[i] += p_Weight[i] * grad;
+                        p_d_Weight[i] += p_In[i] * grad;
                     }
                     if (d_Bias != null) {
-                        d_Bias[o] += δf;
+                        d_Bias[o] += grad;
                     }
                 }
+            }
+        }
+
+        public unsafe class MatMul : Kernel {
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public unsafe delegate void T_forward(
+                float* _Out,       /* [B, O] */
+                float* _In,        /* [B, I] */
+                float* _Weight,    /* [I, O] */
+                float* _Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O);
+
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public unsafe delegate void T_backward(
+                float* _Out,       /* [B, O] */
+                float* d_Out,       /* [B, O] */
+                float* _In,        /* [B, I] */
+                float* d_In,        /* [B, I] */
+                float* _Weight,    /* [I, O] */
+                float* d_Weight,    /* [I, O] */
+                float* _Bias,      /* [O] */
+                float* d_Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O);
+
+            public virtual void forward(
+                float* _Out,       /* [B, O] */
+                float* _In,        /* [B, I] */
+                float* _Weight,    /* [I, O] */
+                float* _Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O) {
+
+                F.matmul_forward_cpu(
+                    _Out,
+                    _In,
+                    _Weight,
+                    _Bias,
+                    B,
+                    I,
+                    O);
+            }
+
+            public virtual void backward(
+                float* _Out,       /* [B, O] */
+                float* d_Out,       /* [B, O] */
+                float* _In,        /* [B, I] */
+                float* d_In,        /* [B, I] */
+                float* _Weight,    /* [I, O] */
+                float* d_Weight,    /* [I, O] */
+                float* _Bias,      /* [O] */
+                float* d_Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O) {
+
+                F.matmul_backward_cpu(
+                    _Out,
+                    d_Out,
+                    _In,
+                    d_In,
+                    _Weight,
+                    d_Weight,
+                    _Bias,
+                    d_Bias,
+                    B,
+                    I,
+                    O);
             }
         }
     }

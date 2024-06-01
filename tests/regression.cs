@@ -2,6 +2,8 @@
 
 using nn;
 
+using Linear = nn.Linear<nn.CPU.MatMulAVX2>;
+
 internal unsafe class regression {
 
     static string pretty_logits(float[] logits) {
@@ -71,7 +73,7 @@ internal unsafe class regression {
         Console.WriteLine($"W_target: {pretty_logits(W_target.data, W_target.numel())}");
         Console.WriteLine($"b_target: {pretty_logits(b_target.data, b_target.numel())}");
 
-        var fc = new nn.Linear(POLY_DEGREE, 1);
+        var fc = new Linear(POLY_DEGREE, 1);
 
         nn.rand.kaiming_uniform_(
             fc.weight.data,
@@ -109,13 +111,17 @@ internal unsafe class regression {
 
             input.Dispose();
 
-            loss = F.mse_loss(logits, batch.Item2);
+            loss = F.mse_loss(
+                logits.data,
+                logits.grad,
+                logits.numel(),
+                batch.Item2);
 
             fc.backward(logits);
 
             foreach (var param in fc.parameters()) {
                 for (int n = 0; n < param.numel(); n++) {
-                    param.data[n] += param.grad[n] * 0.001f;
+                    param.data[n] -= param.grad[n] * 0.001f;
                 }
             }
 

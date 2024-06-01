@@ -6,6 +6,8 @@ using System.Linq;
 
 using nn;
 
+using Linear = nn.Linear<nn.CPU.MatMulC>;
+
 internal unsafe class iris {
     static string pretty_logits(float[] logits) {
         fixed (float* logits0 = logits) {
@@ -60,7 +62,7 @@ internal unsafe class iris {
             lin.weight.data,
             lin.weight.numel(),
             g,
-            lin._in_features,
+            lin.I,
             (float)Math.Sqrt(5));
 
         if (lin.bias != null) {
@@ -68,8 +70,8 @@ internal unsafe class iris {
                 lin.bias.data,
                 lin.bias.numel(),
                 g,
-                -(float)(1.0 / Math.Sqrt(lin._in_features)),
-                (float)(1.0 / Math.Sqrt(lin._in_features)));
+                -(float)(1.0 / Math.Sqrt(lin.I)),
+                (float)(1.0 / Math.Sqrt(lin.I)));
         }
     }
 
@@ -91,13 +93,13 @@ internal unsafe class iris {
 
         var g = new nn.rand.mt19937(137);
 
-        nn.Linear fc1, fc2;
+        Linear fc1, fc2;
 
         nn.Sequential model = new nn.Sequential(
-            fc1 = new nn.Linear(4, 8, use_bias: true),
+            fc1 = new Linear(4, 8, use_bias: true),
             new nn.Identity(),
             new nn.ReLU(),
-            fc2 = new nn.Linear(8, 3, use_bias: false),
+            fc2 = new Linear(8, 3, use_bias: false),
             new nn.Identity(),
             new nn.Sigmoid()
         );
@@ -159,10 +161,17 @@ internal unsafe class iris {
             Console.WriteLine($"{epoch}: logits: {pretty_logits(logits.data, logits.numel())}");
 
             double loss = double.NaN;
+
             if (loss_fn == "BCELoss")
-                loss = F.binary_cross_entropy(logits, y);
+                loss = F.binary_cross_entropy(
+                    logits,
+                    y);
             else if (loss_fn == "MSELoss")
-                loss = F.mse_loss(logits.data, logits.grad, y);
+                loss = F.mse_loss(
+                    logits.data,
+                    logits.grad,
+                    logits.numel(),
+                    y);
 
             Console.WriteLine($"{epoch}: loss: {loss:f4}");
 
