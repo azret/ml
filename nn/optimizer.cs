@@ -5,7 +5,15 @@
 
     using static std;
 
-    public class Optimizer {
+    public interface IOptimizer {
+        uint get_num_params();
+        void reset();
+        void step();
+        void update();
+        void zero_grad();
+    }
+
+    public abstract class Optimizer : IOptimizer {
         protected ulong _step = 0;
 
         protected float _lr;
@@ -32,7 +40,7 @@
             _step++;
         }
 
-        public virtual void update() { }
+        public abstract void update();
 
         public uint get_num_params() {
             uint num = 0;
@@ -59,7 +67,7 @@
                 Tensor T = _params[p];
 
                 for (int n = 0; n < T.numel(); n++) {
-                    T.data[n] += T.grad[n] * _lr;
+                    T.data[n] -= T.grad[n] * _lr;
                 }
             }
         }
@@ -125,20 +133,18 @@
                 Tensor T = _params[p];
 
                 for (int n = 0; n < T.numel(); n++, i++) {
+                    double δf  = T.grad[n];
 
-                    float* f = &T.data[n];
-                    float δf  = T.grad[n];
+                    double m = _beta1 * m_memory[i] + (1.0f - _beta1) * δf;
+                    double v = _beta2 * v_memory[i] + (1.0f - _beta2) * δf * δf;
 
-                    float m = _beta1 * m_memory[i] + (1.0f - _beta1) * δf;
-                    float v = _beta2 * v_memory[i] + (1.0f - _beta2) * δf * δf;
+                    double m_hat = m / (1.0 - Math.Pow(_beta1, _step + 1));
+                    double v_hat = v / (1.0 - Math.Pow(_beta2, _step + 1));
 
-                    float m_hat = m / (1.0f - powf(_beta1, _step + 1));
-                    float v_hat = v / (1.0f - powf(_beta2, _step + 1));
+                    m_memory[i] = (float)m;
+                    v_memory[i] = (float)v;
 
-                    m_memory[i] = m;
-                    v_memory[i] = v;
-
-                    *f += _lr * (m_hat / (sqrtf(v_hat) + _eps) - _weight_decay * (*f));
+                    T.data[n] -= (float)(_lr * (m_hat / (Math.Sqrt(v_hat) + _eps) - (double)_weight_decay * T.data[n]));
                 }
             }
         }

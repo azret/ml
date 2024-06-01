@@ -7,7 +7,7 @@ using static std;
 
 namespace nn.dev {
     unsafe static class MatMul_ {
-        public class cuMatMulA : F.MatMulA {
+        public class cuMatMulA : CPU.F.MatMulA {
             static string CU = @"
 
 extern ""C"" __global__  void matmul_forward_cu(
@@ -72,7 +72,7 @@ extern ""C"" __global__  void matmul_forward_cu(
             }
         }
 
-        static nn.F.MatMul[] kernels;
+        static nn.CPU.F.MatMul[] kernels;
 
         static unsafe int Main() {
             // checkCudaErrors(cuInit());
@@ -84,10 +84,10 @@ extern ""C"" __global__  void matmul_forward_cu(
 
             Console.WriteLine();
 
-            kernels = new nn.F.MatMul[]
+            kernels = new nn.CPU.F.MatMul[]
             {
-                    new F.MatMulA(),
-                    new F.MatMulAVX2(),
+                    new CPU.F.MatMulA(),
+                    new CPU.F.MatMulAVX2(),
             };
 
             uint B = 32;
@@ -119,7 +119,7 @@ extern ""C"" __global__  void matmul_forward_cu(
                 I,
                 O);
 
-            F.matmul_backward_cpu(
+            CPU.F.matmul_backward_cpu(
                 _Out,
                 _In,
                 _Weight,

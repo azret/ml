@@ -5,11 +5,11 @@ VisualStudioVersion = 17.9.34728.123
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "nn", "nn\nn.csproj", "{EE1F14EE-84DE-4A61-BBD6-0350E2AF4787}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{043BA01D-6191-4B0F-8AF3-22454479C2FD}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{043BA01D-6191-4B0F-8AF3-22454479C2FD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "regression", "examples\regression.csproj", "{1E66BC40-85D0-4CE4-A08D-3CB086A85242}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "regression", "tests\regression.csproj", "{1E66BC40-85D0-4CE4-A08D-3CB086A85242}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "perf", "examples\perf.csproj", "{706301E8-CED7-4A1C-98C8-4C483BD96D7D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "iris", "tests\iris.csproj", "{706301E8-CED7-4A1C-98C8-4C483BD96D7D}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{E2433EB5-7AA2-484F-BCF5-E6184960D844}"
 EndProject

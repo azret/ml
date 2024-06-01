@@ -1,14 +1,14 @@
 ﻿using System;
 
 namespace nn {
-    public static unsafe class rand {
+    public interface IRNG {
+        uint randint32();
+        float randfloat32();
+        ulong randint64();
+        double randfloat64();
+    }
 
-        public interface IRNG {
-            uint randint32();
-            float randfloat32();
-            ulong randint64();
-            double randfloat64();
-        }
+    public static unsafe class rand {
 
         // Copyright(c) Makoto Matsumoto and Takuji Nishimura
 
@@ -191,7 +191,7 @@ namespace nn {
             }
         }
 
-        public static void kaiming_uniform_(float* data, uint numel, IRNG g, int fan_in, float a) {
+        public static void kaiming_uniform_(float* data, uint numel, IRNG g, uint fan_in, float a) {
             var gain = calculate_gain("leaky_relu", a);
             var std = gain / Math.Sqrt(fan_in);
             var bound = Math.Sqrt(3.0) * std;

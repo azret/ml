@@ -38,7 +38,7 @@ internal unsafe class regression {
     static nn.Tensor W_target = new nn.Tensor(POLY_DEGREE, requires_grad: false);
     static nn.Tensor b_target = new nn.Tensor(1, requires_grad: false);
 
-    static (float[], float[]) get_batch(nn.rand.IRNG g, int batch_size = 32) {
+    static (float[], float[]) get_batch(IRNG g, int batch_size = 32) {
         float[] random = new float[batch_size];
         nn.rand.normal_(random, g);
         var x = new float[batch_size * POLY_DEGREE];
@@ -71,24 +71,24 @@ internal unsafe class regression {
         Console.WriteLine($"W_target: {pretty_logits(W_target.data, W_target.numel())}");
         Console.WriteLine($"b_target: {pretty_logits(b_target.data, b_target.numel())}");
 
-        var fc = new nn.Linear<F.MatMulAVX2>(POLY_DEGREE, 1);
+        var fc = new nn.Linear(POLY_DEGREE, 1);
 
         nn.rand.kaiming_uniform_(
-            fc._Weight.data,
-            fc._Weight.numel(),
+            fc.weight.data,
+            fc.weight.numel(),
             g,
             POLY_DEGREE,
             (float)Math.Sqrt(5));
 
         nn.rand.uniform_(
-            fc._Bias.data,
-            fc._Bias.numel(),
+            fc.bias.data,
+            fc.bias.numel(),
             g,
             -(float)(1.0/Math.Sqrt(POLY_DEGREE)),
             (float)(1.0 / Math.Sqrt(POLY_DEGREE)));
 
-        Console.WriteLine($"fc.weight: {pretty_logits(fc._Weight.data, fc._Weight.numel())}");
-        Console.WriteLine($"fc.bias: {pretty_logits(fc._Bias.data, fc._Bias.numel())}");
+        Console.WriteLine($"fc.weight: {pretty_logits(fc.weight.data, fc.weight.numel())}");
+        Console.WriteLine($"fc.bias: {pretty_logits(fc.bias.data, fc.bias.numel())}");
 
         Console.WriteLine(g.randint32());
 
@@ -100,8 +100,8 @@ internal unsafe class regression {
             if (step % 1000 == 0)
                 Console.WriteLine($"batch_x: {pretty_logits(batch.Item1)}");
 
-            fc._Weight.zero_grad();
-            fc._Bias.zero_grad();
+            fc.weight.zero_grad();
+            fc.bias.zero_grad();
 
             var input = Tensor.from(batch.Item1);
 
@@ -124,7 +124,7 @@ internal unsafe class regression {
         }
 
         Console.WriteLine($"Loss: {loss:f6} after {step - 1} steps");
-        Console.WriteLine($"==> Learned function:\t" + poly_desc(fc._Weight, fc._Bias));
+        Console.WriteLine($"==> Learned function:\t" + poly_desc(fc.weight, fc.bias));
         Console.WriteLine($"==> Actual function:\t" + poly_desc(W_target, b_target));
         Console.ReadKey();
     }

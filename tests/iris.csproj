@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{706301E8-CED7-4A1C-98C8-4C483BD96D7D}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>perf</RootNamespace>
-    <AssemblyName>perf</AssemblyName>
+    <RootNamespace>iris</RootNamespace>
+    <AssemblyName>iris</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -46,10 +46,13 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="perf.py" />
+    <None Include="iris.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="iris.py" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="perf.cs" />
+    <Compile Include="iris.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

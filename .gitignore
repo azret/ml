@@ -26,5 +26,7 @@
 /tools/coff/bin
 /tools/coff/DATA
 
-/dev/x64
-/x64
+/tests/.vs
+/tests/obj
+/tests/bin
+

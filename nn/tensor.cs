@@ -48,6 +48,12 @@
             GC.SuppressFinalize(this);
         }
 
+        public readonly float* data;
+
+        public readonly float* grad;
+
+        public readonly Device device;
+
         IntPtr h_ua_data, h_ua_grad;
 
         void alloc_cpu(uint numel, bool requires_grad, out float* data, out float* grad) {
@@ -79,13 +85,6 @@
             global::std.free((void*)Interlocked.Exchange(ref h_ua_grad, IntPtr.Zero));
         }
 
-
-        public readonly float* data;
-
-        public readonly float* grad;
-
-        public readonly Device device;
-
         public ulong numbytes {
             get {
                 ulong numbytes = 0;
@@ -103,7 +102,7 @@
             return _numel;
         }
 
-        public void numel(uint value) {
+        public void resize(uint value) {
             if (_numel > value) {
                 _numel = value;
             } else {

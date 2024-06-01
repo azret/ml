@@ -1,5 +1,270 @@
-﻿namespace nn {
+﻿using static nn.F;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System;
+
+using static kernel32;
+
+namespace nn.CPU {
     public static unsafe partial class F {
+
+
+        public static void matmul_backward_cpu(
+            Tensor _Out,       /* [B, O] */
+            Tensor _In,        /* [B, I] */
+            Tensor _Weight,    /* [I, O] */
+            Tensor _Bias,      /* [O] */
+            uint B,
+            uint I,
+            uint O) {
+
+            for (int b = 0; b < B; b++) {
+                for (int o = 0; o < O; o++) {
+                    float δf = _Out.grad[b * O + o];
+                    for (int i = 0; i < I; i++) {
+                        _In.grad[b * I + i] += _Weight.data[o * I + i] * δf;
+                    }
+                }
+            }
+
+            for (int b = 0; b < B; b++) {
+                for (int o = 0; o < O; o++) {
+                    float δf = _Out.grad[b * O + o];
+                    for (int i = 0; i < I; i++) {
+                        _Weight.grad[o * I + i] += _In.data[b * I + i] * δf;
+                    }
+                    if (_Bias != null) {
+                        _Bias.grad[o] += δf;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Base class for all MatMul kernels
+        /// </summary>
+        public unsafe abstract class MatMul : Kernel {
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public unsafe delegate void MatMul_Forward(
+                float* _Out,       /* [B, O] */
+                float* _In,        /* [B, I] */
+                float* _Weight,    /* [I, O] */
+                float* _Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O);
+
+            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+            public unsafe delegate void MatMul_Backward(
+                float* _Out,       /* [B, O] */
+                float* d_Out,       /* [B, O] */
+                float* _In,        /* [B, I] */
+                float* d_In,        /* [B, I] */
+                float* _Weight,    /* [I, O] */
+                float* d_Weight,    /* [I, O] */
+                float* _Bias,      /* [O] */
+                float* d_Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O);
+
+            public abstract void forward(
+                float* _Out,       /* [B, O] */
+                float* _In,        /* [B, I] */
+                float* _Weight,    /* [I, O] */
+                float* _Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O);
+
+            public abstract void backward(
+                Tensor _Out,       /* [B, O] */
+                Tensor _In,        /* [B, I] */
+                Tensor _Weight,    /* [I, O] */
+                Tensor _Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O);
+        }
+
+        /// <summary>
+        /// A no-op implementation
+        /// </summary>
+        public unsafe class MatMulN : MatMul {
+            public override unsafe void forward(
+                float* _Out,
+                float* _In,
+                float* _Weight,
+                float* _Bias,
+                uint B,
+                uint I,
+                uint O) {
+            }
+
+            public override void backward(
+                Tensor _Out,       /* [B, O] */
+                Tensor _In,        /* [B, I] */
+                Tensor _Weight,    /* [I, O] */
+                Tensor _Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O) {
+            }
+        }
+
+        /// <summary>
+        ///  A naive reference C# implementation
+        /// </summary>
+        public unsafe class MatMulA : MatMul {
+            public override void forward(
+                float* _Out,       /* [B, O] */
+                float* _In,        /* [B, I] */
+                float* _Weight,    /* [I, O] */
+                float* _Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O) {
+
+                matmul_forward_cpu(
+                    _Out,
+                    _In,
+                    _Weight,
+                    _Bias,
+                    B,
+                    I,
+                    O);
+            }
+
+            public override void backward(
+                Tensor _Out,       /* [B, O] */
+                Tensor _In,        /* [B, I] */
+                Tensor _Weight,    /* [I, O] */
+                Tensor _Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O) {
+
+                matmul_backward_cpu(
+                    _Out,
+                    _In,
+                    _Weight,
+                    _Bias,
+                    B,
+                    I,
+                    O);
+            }
+        }
+
+        /// <summary>
+        /// Base class for all MatMul kernels written in raw assembly
+        /// </summary>
+        public abstract class MatMulC : MatMulA, IDisposable {
+            IntPtr _p_matmul_forward_cpu_ptr;
+            IntPtr _p_matmul_backward_cpu_ptr;
+
+            MatMul_Forward _matmul_forward_cpu_func;
+            MatMul_Backward _matmul_backward_cpu_func;
+
+            public MatMulC(byte[] matmul_forward_cpu_asm, byte[] matmul_backward_cpu_asm = null) : base() {
+                if (!(matmul_forward_cpu_asm is null)) {
+                    _matmul_forward_cpu_func = alloc<MatMul_Forward>(matmul_forward_cpu_asm, out _p_matmul_forward_cpu_ptr);
+                }
+                if (!(matmul_backward_cpu_asm is null)) {
+                    _matmul_backward_cpu_func = alloc<MatMul_Backward>(matmul_backward_cpu_asm, out _p_matmul_backward_cpu_ptr);
+                }
+            }
+
+            protected override void Dispose(bool disposing) {
+                free(disposing, ref _p_matmul_backward_cpu_ptr, ref _matmul_forward_cpu_func);
+                free(disposing, ref _p_matmul_forward_cpu_ptr, ref _matmul_backward_cpu_func);
+            }
+
+            static private TDelegate alloc<TDelegate>(byte[] asm, out IntPtr _func_ptr) {
+                _func_ptr = VirtualAlloc(IntPtr.Zero, new IntPtr(asm.Length),
+                    AllocationTypes.Commit | AllocationTypes.Reserve, MemoryProtections.ExecuteReadWrite);
+                if (_func_ptr == IntPtr.Zero) {
+                    throw new OutOfMemoryException();
+                }
+                Marshal.Copy(asm, 0, _func_ptr, asm.Length);
+                return Marshal.GetDelegateForFunctionPointer<TDelegate>(_func_ptr);
+            }
+
+            static void free<TDelegate>(bool disposing, ref IntPtr _func_ptr, ref TDelegate func) where TDelegate : class {
+                Interlocked.Exchange(ref func, null);
+                IntPtr p = Interlocked.Exchange(ref _func_ptr, IntPtr.Zero);
+                if (p != IntPtr.Zero) {
+                    bool success = VirtualFree(p, IntPtr.Zero, FreeTypes.Release);
+                    if (!success && disposing) {
+                        throw new Win32Exception(Marshal.GetLastWin32Error());
+                    }
+                }
+            }
+
+            public override unsafe void forward(
+                float* _Out,       /* [B, O] */
+                float* _In,        /* [B, I] */
+                float* _Weight,    /* [I, O] */
+                float* _Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O) {
+
+                if (_matmul_forward_cpu_func is null) {
+                    nn.F.matmul_forward_cpu(
+                        _Out,
+                        _In,
+                        _Weight,
+                        _Bias,
+                        B,
+                        I,
+                        O);
+                } else {
+                    _matmul_forward_cpu_func(
+                        _Out,
+                        _In,
+                        _Weight,
+                        _Bias,
+                        B,
+                        I,
+                        O);
+                }
+            }
+
+            public override void backward(
+                Tensor _Out,       /* [B, O] */
+                Tensor _In,        /* [B, I] */
+                Tensor _Weight,    /* [I, O] */
+                Tensor _Bias,      /* [O] */
+                uint B,
+                uint I,
+                uint O) {
+
+                if (_matmul_backward_cpu_func is null) {
+                    nn.CPU.F.matmul_backward_cpu(
+                        _Out,
+                        _In,
+                        _Weight,
+                        _Bias,
+                        B,
+                        I,
+                        O);
+                } else {
+                    _matmul_backward_cpu_func(
+                        _Out.data,
+                        _Out.grad,
+                        _In.data,
+                        _In.grad,
+                        _Weight.data,
+                        _Weight.grad,
+                        _Bias.data,
+                        _Bias.grad,
+                        B,
+                        I,
+                        O);
+                }
+            }
+        }
 
         /// <summary>
         /// Vectorized implementation of MatMul
