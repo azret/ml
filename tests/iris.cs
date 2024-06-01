@@ -217,7 +217,7 @@ internal unsafe class iris {
     }
 
     static int Main() {
-        int exitCode = 0;
+        int exitCode = 1;
 
         Console.WriteLine(Assembly.GetExecutingAssembly().Location);
 
