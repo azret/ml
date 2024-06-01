@@ -15,15 +15,18 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: CHECKOUT
+      - name: Get Latest
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: INSTALL .NET CORE
+      - name: Install .NET Core
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
       - name: SETUP MSBuild.exe
         uses: microsoft/setup-msbuild@v2

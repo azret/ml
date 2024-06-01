@@ -216,7 +216,9 @@ internal unsafe class iris {
         return output;
     }
 
-    static void Main() {
+    static int Main() {
+        int exitCode = 0;
+
         Console.WriteLine(Assembly.GetExecutingAssembly().Location);
 
         string rootPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -241,6 +243,7 @@ internal unsafe class iris {
                 File.ReadAllText(rootPath + "iris.pytorch.SGD.txt")) {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("FAILED!");
+            exitCode = 1;
         } else {
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("OK.");
@@ -262,6 +265,7 @@ internal unsafe class iris {
         File.ReadAllText(rootPath + "iris.pytorch.AdamW.txt")) {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("FAILED!");
+            exitCode = 1;
         } else {
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("OK.");
@@ -272,5 +276,7 @@ internal unsafe class iris {
             Console.WriteLine("Press any key to continue...");
             Console.ReadKey();
         }
+
+        return exitCode;
     }
 }
