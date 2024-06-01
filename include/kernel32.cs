@@ -58,7 +58,7 @@ public static class kernel32 {
     [DllImport("kernel32.dll", EntryPoint = "GetTickCount64", SetLastError = false)]
     public static extern ulong millis();
 
-    [DllImport("kernel32.dll", EntryPoint = "CopyMemory", SetLastError = false)]
+    [DllImport("kernel32.dll", EntryPoint = "RtlCopyMemory", SetLastError = false)]
     public static extern unsafe void CopyMemory(void* destination, void* source, UIntPtr length);
 
     [DllImport("kernel32.dll", EntryPoint = "RtlFillMemory", SetLastError = false)]
@@ -104,7 +104,6 @@ public static class kernel32 {
     public const uint FILE_ATTRIBUTE_TEMPORARY = 0x00000100;
 
     [DllImport("kernel32.dll", SetLastError = true)]
-    [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
     public static extern bool CloseHandle(IntPtr handle);
 
     [Flags]

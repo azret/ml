@@ -68,30 +68,30 @@
                     memset((void*)h_ua_grad, 0, ALIGNMENT + sizeof(float) * (ulong)_numel);
                 }
                 // We need to ensure that the host memory is aligned to 4K
-                if (h_ua_data != null) data = (float*)(((ulong)h_ua_data + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
-                if (h_ua_grad != null) grad = (float*)(((ulong)h_ua_grad + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
+                if (h_ua_data != IntPtr.Zero) data = (float*)(((ulong)h_ua_data + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
+                if (h_ua_grad != IntPtr.Zero) grad = (float*)(((ulong)h_ua_grad + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
             } catch {
                 data = null;
                 grad = null;
                 _numel = 0;
-                if (h_ua_grad != null) global::std.free((void*)h_ua_grad);
-                if (h_ua_data != null) global::std.free((void*)h_ua_data);
+                if (h_ua_grad != IntPtr.Zero) global::std.free((void*)h_ua_grad);
+                if (h_ua_data != IntPtr.Zero) global::std.free((void*)h_ua_data);
                 throw;
             }
         }
 
         void free_cpu() {
-            global::std.free((void*)Interlocked.Exchange(ref h_ua_data, IntPtr.Zero));
-            global::std.free((void*)Interlocked.Exchange(ref h_ua_grad, IntPtr.Zero));
+            free((void*)Interlocked.Exchange(ref h_ua_data, IntPtr.Zero));
+            free((void*)Interlocked.Exchange(ref h_ua_grad, IntPtr.Zero));
         }
 
         public ulong numbytes {
             get {
                 ulong numbytes = 0;
-                if (h_ua_data != null) {
+                if (h_ua_data != IntPtr.Zero) {
                     numbytes += ALIGNMENT + (ulong)_numel * sizeof(float);
                 }
-                if (h_ua_grad != null) {
+                if (h_ua_grad != IntPtr.Zero) {
                     numbytes += ALIGNMENT + (ulong)_numel * sizeof(float);
                 }
                 return numbytes;
