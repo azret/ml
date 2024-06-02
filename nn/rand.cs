@@ -191,8 +191,8 @@
             }
         }
 
-        public static void kaiming_uniform_(float* data, uint numel, IRNG g, uint fan_in, float a) {
-            var gain = calculate_gain("leaky_relu", a);
+        public static void kaiming_uniform_(float* data, uint numel, IRNG g, uint fan_in, float a, string nonlinearity = "leaky_relu") {
+            var gain = calculate_gain(nonlinearity, a);
             var std = gain / Math.Sqrt(fan_in);
             var bound = Math.Sqrt(3.0) * std;
             uniform_(data,

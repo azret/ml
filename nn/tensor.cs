@@ -17,6 +17,12 @@
             return new Tensor(numel, requires_grad);
         }
 
+        public static Tensor NaN(uint numel, bool requires_grad = false) {
+            var T = new Tensor(numel, requires_grad);
+            T.fill_(float.NaN);
+            return T;
+        }
+
         public static Tensor ones(uint numel, bool requires_grad = false) {
             var T = new Tensor(numel, requires_grad);
             T.fill_(1f);
@@ -103,7 +109,7 @@
         }
 
         public void resize(uint value) {
-            if (_numel > value) {
+            if (_numel >= value) {
                 _numel = value;
             } else {
                 throw new NotImplementedException();

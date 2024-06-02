@@ -1,5 +1,6 @@
 ﻿namespace nn {
     using System;
+    using System.Collections;
     using System.Collections.Generic;
     using System.Diagnostics;
 
@@ -27,8 +28,16 @@
         }
     }
 
-    public unsafe sealed class Sequential : ILayer {
-        ILayer[] _M = new ILayer[0];
+    public unsafe sealed class Sequential : ILayer, IEnumerable<ILayer> {
+        ILayer[] Block = Array.Empty<ILayer>();
+
+        public IEnumerator<ILayer> GetEnumerator() {
+            return ((IEnumerable<ILayer>)Block).GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() {
+            return Block.GetEnumerator();
+        }
 
         public Sequential(params ILayer[] modules) {
             foreach (var m in modules) {
@@ -37,22 +46,22 @@
         }
 
         public void add(ILayer m) {
-            var M = new ILayer[_M.Length + 1];
-            Array.Copy(_M, M, _M.Length);
-            M[_M.Length] = m;
-            _M = M;
+            var M = new ILayer[Block.Length + 1];
+            Array.Copy(Block, M, Block.Length);
+            M[Block.Length] = m;
+            Block = M;
         }
 
         public void Dispose() {
-            var M = _M;
-            _M = null;
+            var M = Block;
+            Block = null;
             for (int m = M.Length - 1; m >= 0; m--) {
                 M[m].Dispose();
             }
         }
 
         public IEnumerable<Tensor> parameters() {
-            foreach (ILayer m in _M) {
+            foreach (ILayer m in Block) {
                 foreach (var p in m.parameters()) {
                     yield return p;
                 }
@@ -60,15 +69,15 @@
         }
 
         public Tensor forward(Tensor input) {
-            for (int m = 0; m < _M.Length; m++) {
-                input = _M[m].forward(input);
+            for (int m = 0; m < Block.Length; m++) {
+                input = Block[m].forward(input);
             }
             return input;
         }
 
         public Tensor backward(Tensor output) {
-            for (int m = _M.Length - 1; m >= 0; m--) {
-                output = _M[m].backward(output);
+            for (int m = Block.Length - 1; m >= 0; m--) {
+                output = Block[m].backward(output);
             }
             return output;
         }
