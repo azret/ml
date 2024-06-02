@@ -1,4 +1,4 @@
-# Neural network training in C#
+# Neural Network Training in C#
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Build](https://github.com/azret/nn.cs/actions/workflows/ci.yml/badge.svg)](https://github.com/azret/nn.cs/actions/workflows/ci.yml)

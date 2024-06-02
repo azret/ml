@@ -205,17 +205,11 @@
             }
         }
 
-        public void memcpy(float* src, uint numel) {
+        public void from_(float* src, uint numel) {
             kernel32.CopyMemory(
                 data,
                 src,
                 (UIntPtr)((ulong)numel * sizeof(float)));
-        }
-
-        public void zero_data() {
-            kernel32.ZeroMemory(
-                data,
-                (UIntPtr)((ulong)numel() * sizeof(float)));
         }
 
         public void zero_grad() {

@@ -60,16 +60,16 @@ internal unsafe class iris {
 
     private static void reset_weights(Linear lin, IRNG g) {
         nn.rand.kaiming_uniform_(
-            lin.weight.data,
-            lin.weight.numel(),
+            lin._Weight.data,
+            lin._Weight.numel(),
             g,
             lin.I,
             (float)Math.Sqrt(5));
 
-        if (lin.bias != null) {
+        if (lin._Bias != null) {
             nn.rand.uniform_(
-                lin.bias.data,
-                lin.bias.numel(),
+                lin._Bias.data,
+                lin._Bias.numel(),
                 g,
                 -(float)(1.0 / Math.Sqrt(lin.I)),
                 (float)(1.0 / Math.Sqrt(lin.I)));
@@ -97,10 +97,10 @@ internal unsafe class iris {
         Linear fc1, fc2;
 
         nn.Sequential model = new nn.Sequential(
-            fc1 = new Linear(4, 8, use_bias: true),
+            fc1 = new Linear(4, 8, bias: true),
             new nn.Identity(),
             new nn.ReLU(),
-            fc2 = new Linear(8, 3, use_bias: false),
+            fc2 = new Linear(8, 3, bias: false),
             new nn.Identity(),
             new nn.Sigmoid()
         );
@@ -108,13 +108,13 @@ internal unsafe class iris {
         reset_weights(fc1, g);
         reset_weights(fc2, g);
 
-        Console.WriteLine($"fc1.weight: {pretty_logits(fc1.weight.data, fc1.weight.numel())}");
-        if (fc1.bias != null) {
-            Console.WriteLine($"fc1.bias: {pretty_logits(fc1.bias.data, fc1.bias.numel())}");
+        Console.WriteLine($"fc1.weight: {pretty_logits(fc1._Weight.data, fc1._Weight.numel())}");
+        if (fc1._Bias != null) {
+            Console.WriteLine($"fc1.bias: {pretty_logits(fc1._Bias.data, fc1._Bias.numel())}");
         }
-        Console.WriteLine($"fc2.weight: {pretty_logits(fc2.weight.data, fc2.weight.numel())}");
-        if (fc2.bias != null) {
-            Console.WriteLine($"fc2.bias: {pretty_logits(fc2.bias.data, fc2.bias.numel())}");
+        Console.WriteLine($"fc2.weight: {pretty_logits(fc2._Weight.data, fc2._Weight.numel())}");
+        if (fc2._Bias != null) {
+            Console.WriteLine($"fc2.bias: {pretty_logits(fc2._Bias.data, fc2._Bias.numel())}");
         }
 
         const int batch_size = 10;
@@ -184,19 +184,19 @@ internal unsafe class iris {
 
             optimizer.step();
 
-            Console.WriteLine($"{epoch}: fc2.weight.grad: {pretty_logits(fc2.weight.grad, fc2.weight.numel())}");
-            if (fc2.bias != null)
-                Console.WriteLine($"{epoch}: fc2.bias.grad: {pretty_logits(fc2.bias.grad, fc2.bias.numel())}");
-            Console.WriteLine($"{epoch}: fc1.weight.grad: {pretty_logits(fc1.weight.grad, fc1.weight.numel())}");
-            if (fc1.bias != null)
-                Console.WriteLine($"{epoch}: fc1.bias.grad: {pretty_logits(fc1.bias.grad, fc1.bias.numel())}");
+            Console.WriteLine($"{epoch}: fc2.weight.grad: {pretty_logits(fc2._Weight.grad, fc2._Weight.numel())}");
+            if (fc2._Bias != null)
+                Console.WriteLine($"{epoch}: fc2.bias.grad: {pretty_logits(fc2._Bias.grad, fc2._Bias.numel())}");
+            Console.WriteLine($"{epoch}: fc1.weight.grad: {pretty_logits(fc1._Weight.grad, fc1._Weight.numel())}");
+            if (fc1._Bias != null)
+                Console.WriteLine($"{epoch}: fc1.bias.grad: {pretty_logits(fc1._Bias.grad, fc1._Bias.numel())}");
 
-            Console.WriteLine($"{epoch}: fc1.weight: {pretty_logits(fc1.weight.data, fc1.weight.numel())}");
-            if (fc1.bias != null)
-                Console.WriteLine($"{epoch}: fc1.bias: {pretty_logits(fc1.bias.data, fc1.bias.numel())}");
-            Console.WriteLine($"{epoch}: fc2.weight: {pretty_logits(fc2.weight.data, fc2.weight.numel())}");
-            if (fc2.bias != null)
-                Console.WriteLine($"{epoch}: fc2.bias: {pretty_logits(fc2.bias.data, fc2.bias.numel())}");
+            Console.WriteLine($"{epoch}: fc1.weight: {pretty_logits(fc1._Weight.data, fc1._Weight.numel())}");
+            if (fc1._Bias != null)
+                Console.WriteLine($"{epoch}: fc1.bias: {pretty_logits(fc1._Bias.data, fc1._Bias.numel())}");
+            Console.WriteLine($"{epoch}: fc2.weight: {pretty_logits(fc2._Weight.data, fc2._Weight.numel())}");
+            if (fc2._Bias != null)
+                Console.WriteLine($"{epoch}: fc2.bias: {pretty_logits(fc2._Bias.data, fc2._Bias.numel())}");
         }
     }
 

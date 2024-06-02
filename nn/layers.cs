@@ -2,7 +2,6 @@
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
-    using static nn.F;
 
     public interface ICompute {
         Tensor forward(Tensor input);
@@ -118,7 +117,7 @@
                 }
             }
 
-            _In.memcpy(input.data, N);
+            _In.from_(input.data, N);
 
             forward(
                 _Out.data,
@@ -189,7 +188,7 @@
                 }
             }
 
-            _In.memcpy(input.data, N);
+            _In.from_(input.data, N);
 
             forward(
                 _Out.data,
@@ -217,52 +216,53 @@
         }
     }
 
-    [DebuggerDisplay("({_in_features}, {_out_features})")]
-    public unsafe class Linear<T_MatMul> : ILayer where T_MatMul: MatMul, new() {
-        T_MatMul _MatMul_Impl;
-
-        Tensor _In, _Out;
+    [DebuggerDisplay("nn.Linear ({I}, {O})")]
+    public unsafe class Linear<T_MatMul> : ILayer where T_MatMul: F.MatMul, new() {
+        T_MatMul _MatMul;
 
         public readonly uint I;
         public readonly uint O;
 
-        public readonly Tensor weight;
-        public readonly Tensor bias;
+        Tensor _In;     /* [B, I] */
+        Tensor _Out;    /* [B, O] */
 
-        public Linear(int in_features, int out_features, bool use_bias = true) {
+        public readonly Tensor _Weight; /* [I, O] */
+        public readonly Tensor _Bias;   /* [O] */
+
+        public Linear(int in_features, int out_features, bool bias = true) {
             if (in_features <= 0 || in_features >= short.MaxValue / 2) {
                 throw new ArgumentOutOfRangeException(nameof(in_features));
             }
             if (out_features <= 0 || out_features >= short.MaxValue / 2) {
                 throw new ArgumentOutOfRangeException(nameof(out_features));
             }
-            _MatMul_Impl = new T_MatMul();
             I = (uint)in_features;
             O = (uint)out_features;
-            weight = new Tensor(checked(O * I), requires_grad: true);
-            bias = use_bias
+            _Weight = new Tensor(checked(O * I), requires_grad: true);
+            _Bias = bias
                 ? new Tensor(O, requires_grad: true)
                 : null;
+            _MatMul = new T_MatMul();
         }
 
         public void Dispose() {
-            if (_MatMul_Impl != null) _MatMul_Impl.Dispose();
-            _MatMul_Impl = null;
             if (_Out != null) _Out.Dispose();
             _Out = null;
             if (_In != null) _In.Dispose();
             _In = null;
-            if (bias != null) bias.Dispose();
-            if (weight != null) weight.Dispose();
+            if (_Bias != null) _Bias.Dispose();
+            if (_Weight != null) _Weight.Dispose();
+            if (_MatMul != null) _MatMul.Dispose();
+            _MatMul = null;
         }
 
         public IEnumerable<Tensor> parameters() {
-            if (weight != null) yield return weight;
-            if (bias != null) yield return bias;
+            if (_Weight != null) yield return _Weight;
+            if (_Bias != null) yield return _Bias;
         }
 
         public Tensor forward(Tensor input) {
-            if (_MatMul_Impl == null) throw new ObjectDisposedException(GetType().FullName);
+            if (_MatMul == null) throw new ObjectDisposedException(GetType().FullName);
 
             uint N = input.numel();
 
@@ -288,13 +288,13 @@
                 }
             }
 
-            _In.memcpy(input.data, N);
+            _In.from_(input.data, N);
 
-            _MatMul_Impl.forward(
+            _MatMul.forward(
                 _Out.data,
                 _In.data,
-                weight.data,
-                bias != null ? bias.data : null,
+                _Weight.data,
+                _Bias != null ? _Bias.data : null,
                 B,
                 I,
                 O);
@@ -303,7 +303,7 @@
         }
 
         public Tensor backward(Tensor output) {
-            if (_MatMul_Impl == null) throw new ObjectDisposedException(GetType().FullName);
+            if (_MatMul == null) throw new ObjectDisposedException(GetType().FullName);
 
             uint N = output.numel();
 
@@ -314,15 +314,15 @@
 
             _In.zero_grad();
 
-            _MatMul_Impl.backward(
+            _MatMul.backward(
                 output.data,
                 output.grad,
                 _In.data,
                 _In.grad,
-                weight.data,
-                weight.grad,
-                bias != null ? bias.data : null,
-                bias != null ? bias.grad : null,
+                _Weight.data,
+                _Weight.grad,
+                _Bias != null ? _Bias.data : null,
+                _Bias != null ? _Bias.grad : null,
                 B,
                 I,
                 O);
@@ -331,4 +331,9 @@
         }
     }
 
+    public class Linear : Linear<F.MatMul> {
+        public Linear(int in_features, int out_features, bool bias = true)
+            : base(in_features, out_features, bias) {
+        }
+    }
 }

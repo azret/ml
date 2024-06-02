@@ -18,6 +18,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{C8A19C88-D
 		README.md = README.md
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{2164DCB5-04D7-470F-85EE-A645582208F3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "iris", "iris", "{CDCA66CA-3CC3-4827-8E49-38644145E81B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -43,6 +47,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{416F4053-358D-4631-97DE-B1031B29947A} = {8D1E28FC-4EB8-4FED-BA84-DD5A7146D6CC}
 		{C0E96DCD-4D43-40A5-AF7B-37B3390AD781} = {CA854D0E-1709-4A63-BE04-77C7DAFEB9C6}
+		{CDCA66CA-3CC3-4827-8E49-38644145E81B} = {2164DCB5-04D7-470F-85EE-A645582208F3}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D2D43329-5B8E-4C95-BE2A-9765990BC032}
