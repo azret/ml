@@ -92,19 +92,23 @@
             }
         }
 
-        public static void uniform_(float[] data, IRNG g, float from = 0f, float to = 1f) {
+        public static float uniform32(IRNG g, float from = 0f, float to = 1f) {
+            return (float)g.randfloat32() * (to - from) + from;
+        }
+
+        public static void uniform32_(float[] data, IRNG g, float from = 0f, float to = 1f) {
             fixed (float* ptr = data) {
-                uniform_(ptr, (uint)data.Length, g, from, to);
+                uniform32_(ptr, (uint)data.Length, g, from, to);
             }
         }
 
-        public static void uniform_(float* data, uint numel, IRNG g, float from = 0f, float to = 1f) {
+        public static void uniform32_(float* data, uint numel, IRNG g, float from = 0f, float to = 1f) {
             for (uint t = 0; t < numel; t++) {
-                data[t] = (float)g.randfloat32() * (to - from) + from;
+                data[t] = uniform32(g, from , to);
             }
         }
 
-        // Box–Muller transform
+        // Box-Muller transform
 
         static void normal_fill_16(float* data, float mean, float std) {
             const double EPSILONE = 1e-12;
@@ -195,7 +199,7 @@
             var gain = calculate_gain(nonlinearity, a);
             var std = gain / Math.Sqrt(fan_in);
             var bound = Math.Sqrt(3.0) * std;
-            uniform_(data,
+            uniform32_(data,
                 numel,
                 g,
                 -(float)bound, (float)bound);

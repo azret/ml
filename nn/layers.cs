@@ -225,7 +225,7 @@
         }
     }
 
-    [DebuggerDisplay("nn.Linear ({I}, {O})")]
+    [DebuggerDisplay("nn.Linear<{typeof(T_MatMul).Name,nq}> ({I}, {O})")]
     public unsafe class Linear<T_MatMul> : ILayer where T_MatMul: F.MatMul, new() {
         T_MatMul _MatMul;
 
@@ -247,22 +247,22 @@
             }
             I = (uint)in_features;
             O = (uint)out_features;
+            _MatMul = new T_MatMul();
             _Weight = new Tensor(checked(O * I), requires_grad: true);
             _Bias = bias
                 ? new Tensor(O, requires_grad: true)
                 : null;
-            _MatMul = new T_MatMul();
         }
 
         public void Dispose() {
+            if (_MatMul != null) _MatMul.Dispose();
+            _MatMul = null;
             if (_Out != null) _Out.Dispose();
             _Out = null;
             if (_In != null) _In.Dispose();
             _In = null;
             if (_Bias != null) _Bias.Dispose();
             if (_Weight != null) _Weight.Dispose();
-            if (_MatMul != null) _MatMul.Dispose();
-            _MatMul = null;
         }
 
         public IEnumerable<Tensor> parameters() {

@@ -4,6 +4,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics.X86;
+using System.Text;
 
 using nn;
 
@@ -16,16 +19,17 @@ internal unsafe class iris {
         }
     }
 
-    static string pretty_logits(float* logits0, uint cc) {
+    static string pretty_logits(float* logits0, uint cc, uint max_ = 7) {
+        uint n = Math.Min(cc, max_);
         string row = "[";
-        for (int j = 0; j < Math.Min(cc, 7); j++) {
-            row += $"{(Math.Round(logits0[j], 4)):f4}";
-            if (j == cc - 1)
-                row += "";
-            else if (j > 0)
+        for (int j = 0; j < n; j++) {
+            row += $"{logits0[j]:f4}";
+            if (j == n - 1) {
+                if (n < cc)
+                    row += ", ...";
+            } else {
                 row += ", ";
-            else
-                row += ", ";
+            }
         }
         row += "]";
         return row;
@@ -67,7 +71,7 @@ internal unsafe class iris {
             (float)Math.Sqrt(5));
 
         if (lin._Bias != null) {
-            nn.rand.uniform_(
+            nn.rand.uniform32_(
                 lin._Bias.data,
                 lin._Bias.numel(),
                 g,
@@ -77,6 +81,8 @@ internal unsafe class iris {
     }
 
     static void run(TextWriter Console, string data_file, string optim, string loss_fn, float lr) {
+        rng_tests(Console);
+
         var data = File.ReadAllLines(data_file);
 
         // test data loader batching
@@ -217,16 +223,24 @@ internal unsafe class iris {
     }
 
     static int Main() {
+        Console.WriteLine("> CPUD: ID: " + GetProcessorManufacturerId());
+        Console.WriteLine("> CPUD: X64: " + System.Runtime.Intrinsics.X86.X86Base.X64.IsSupported);
+        Console.WriteLine("> CPUD: AVX: " + System.Runtime.Intrinsics.X86.Avx.IsSupported);
+        Console.WriteLine("> CPUD: AVX2: " + System.Runtime.Intrinsics.X86.Avx2.IsSupported);
+        Console.WriteLine("> CPUD: Avx512F: " + System.Runtime.Intrinsics.X86.Avx512F.IsSupported );
+        Console.WriteLine();
+
         int exitCode = 0;
 
-        Console.WriteLine(Assembly.GetExecutingAssembly().Location);
+        Console.WriteLine("> " + Assembly.GetExecutingAssembly().Location);
 
         string rootPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
         if (!Path.EndsInDirectorySeparator(rootPath)) {
             rootPath += Path.DirectorySeparatorChar;
         }
 
-        Console.WriteLine($"PATH: {rootPath}");
+        Console.WriteLine($"> PATH: {rootPath}");
+        Console.WriteLine();
 
         Console.WriteLine("Testing SGD...");
         var OUT = File.CreateText(rootPath + "iris.csharp.SGD.txt");
@@ -273,10 +287,77 @@ internal unsafe class iris {
         Console.ResetColor();
 
         if (Debugger.IsAttached) {
-            Console.WriteLine("Press any key to continue...");
+            Console.Write("\nPress any key to continue...");
             Console.ReadKey();
         }
 
         return exitCode;
+    }
+
+    public enum VslMethodBernoulli {
+        ICDF = 0,
+    }
+
+    public enum VslBrng {
+        MCG31 = (1 << 20),
+        R250 = (1 << 20) * 2,
+        MRG32K3A = (1 << 20) * 3,
+        MCG59 = (1 << 20) * 4,
+        WH = (1 << 20) * 5,
+        SOBOL = (1 << 20) * 6,
+        NIEDERR = (1 << 20) * 7,
+        MT19937 = (1 << 20) * 8,
+        MT2203 = (1 << 20) * 9,
+        IABSTRACT = (1 << 20) * 10,
+        DABSTRACT = (1 << 20) * 11,
+        SABSTRACT = (1 << 20) * 12,
+        SFMT19937 = (1 << 20) * 13,
+        NONDETERM = (1 << 20) * 14,
+        ARS5 = (1 << 20) * 15,
+        PHILOX4X32X10 = (1 << 20) * 16,
+    }
+
+    [DllImport("mkl_rt.2.dll", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    static extern int vslDeleteStream_64(ref IntPtr stream);
+    [DllImport("mkl_rt.2.dll", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    static extern int vslSkipAheadStream_64(IntPtr stream, ulong nskip);
+    [DllImport("mkl_rt.2.dll", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    static extern int vslNewStream_64(out IntPtr stream, long brng, ulong seed);
+    [DllImport("mkl_rt.2.dll", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    static extern int viRngBernoulli_64(long method, IntPtr stream, long n, int[] r, double p);
+
+    static string GetProcessorManufacturerId() {
+        (int _, int ebx, int ecx, int edx) = X86Base.CpuId(0, 0);
+        int* manufacturerId = stackalloc int[3] { ebx, edx, ecx };
+        return Encoding.ASCII.GetString((byte*)manufacturerId, 12);
+    }
+
+    private static void rng_tests(TextWriter Console) {
+        Console.WriteLine("<bernoulli_>");
+        var g = new nn.rand.mt19937(137);
+        var a = Tensor.zeros(137);
+        Console.WriteLine(g.randint32());
+        nn.rand.uniform32_(a.data, a.numel(), g, 0, 1);
+        Console.WriteLine(pretty_logits(a.data, a.numel()));
+        Console.WriteLine(g.randint32());
+        bernoulli_(a, g);
+        Console.WriteLine(pretty_logits(a.data, a.numel(), 137));
+        Console.WriteLine(g.randint32());
+        Console.WriteLine("</bernoulli_>");
+    }
+
+    private static void bernoulli_(Tensor a, rand.mt19937 g) {
+        var seed = g.randint32();
+        int status = vslNewStream_64(out var stream, (long)VslBrng.MCG31, seed);
+        status = vslSkipAheadStream_64(stream, 0);
+        var r = new int[a.numel()];
+        status = viRngBernoulli_64((long)VslMethodBernoulli.ICDF, stream,
+            r.Length,
+            r,
+            0.2);
+        status = vslDeleteStream_64(ref stream);
+        for (int i = 0; i < a.numel(); i++) {
+            a.data[i] = r[i];
+        }
     }
 }

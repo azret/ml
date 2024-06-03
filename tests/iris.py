@@ -56,33 +56,34 @@ class Net(nn.Module):
     #         print(f"bias: {pretty_logits(linear.bias)}")
     #         print(torch.randint(0, 0xFFFFFFFF, [1]).item())
 
-def pretty_logits(logits):
+def pretty_logits(logits, max_ = 7):
     logits0 = logits.view(-1)
     row = "["
-    for j in range(min(len(logits0), 7)):
-        row += f"{(round(logits0[j].item(), 4)):.4f}"
-        if j == len(logits0) - 1:
-            row += ""
-        elif j > 0 and ((j + 1) % logits.shape[0]) == 0:
-            row += ", "
-        else:
-            row += ", "
-            
-    row += "]"
-    return row
-
-def pretty_array(logits0):
-    row = "["
-    for j in range(min(len(logits0), 7)):
-        row += f"{(round(logits0[j], 4)):.4f}"
-        if j == len(logits0) - 1:
-            row += ""
+    cc = len(logits0)
+    n = min(cc, max_)
+    for j in range(n):
+        row += f"{logits0[j].item():.4f}"
+        if j == n - 1:
+            if (n < cc):
+                row += ", ..."
         else:
             row += ", "
     row += "]"
     return row
 
 if __name__ == "__main__":
+    print("<bernoulli_>")
+    torch.manual_seed(137)
+    print(torch.randint(0, 0xFFFFFFFF, [1]).item())
+    a = torch.zeros(137)
+    a.uniform_(0, 1)
+    print(pretty_logits(a))
+    print(torch.randint(0, 0xFFFFFFFF, [1]).item())
+    a.bernoulli_(p = 0.2);
+    print(pretty_logits(a, 137))
+    print(torch.randint(0, 0xFFFFFFFF, [1]).item())
+    print("</bernoulli_>")
+
     import argparse
 
     from pathlib import Path
