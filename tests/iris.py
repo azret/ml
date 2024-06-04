@@ -144,6 +144,9 @@ if __name__ == "__main__":
 
     data_iter = iter(get_batch(args.batch_size))
 
+    model.train();
+    print("train:");
+
     for epoch in range(num_epochs):
         x, y, take = next(data_iter)
         logits = model(torch.from_numpy(x))
@@ -166,3 +169,12 @@ if __name__ == "__main__":
         if model.fc2.bias is not None:
             print(f"{epoch}: fc2.bias: {pretty_logits(model.fc2.bias)}")
 
+    data_iter = iter(get_batch(1))
+
+    model.eval();
+    print("eval:");
+
+    for s in range(len(data)):
+        x, y, take = next(data_iter)
+        logits = model(torch.from_numpy(x))
+        print(f'{s}: logits: {pretty_logits(logits)}')

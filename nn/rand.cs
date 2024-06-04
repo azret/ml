@@ -10,14 +10,10 @@
 
     public static unsafe class rand {
 
-        // Copyright(c) Makoto Matsumoto and Takuji Nishimura
-
+        /// <summary>
+        // A Mersenne Twister pseudorandom number generator. Copyright(c) Makoto Matsumoto and Takuji Nishimura.
+        /// </summary>
         public class mt19937 : IRNG {
-
-            // This implementation follows PyTorch so that we are numerically identical when running verification tests.
-
-            // See https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/cpu/DistributionTemplates.h
-            // See https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/core/DistributionsHelper.h
 
             static readonly uint[] MATRIX_A = { 0x0u, 0x9908b0df };
 
@@ -32,19 +28,21 @@
             int left_;
             int next_;
 
-            public mt19937(int seed = 5489) {
+            public mt19937(uint seed = 5489) {
                 state_ = new uint[MERSENNE_STATE_N];
                 left_ = 1;
                 next_ = 0;
-                init_with_uint32((uint)seed);
+                init_with_uint32(seed);
             }
 
             void init_with_uint32(uint seed) {
-                state_ = new uint[MERSENNE_STATE_N];
-                state_[0] = seed & 0xffffffff;
-                for (uint j = 1; j < MERSENNE_STATE_N; j++) {
-                    state_[j] = 1812433253 * (state_[j - 1] ^ (state_[j - 1] >> 30)) + j;
-                    state_[j] &= 0xffffffff;
+                unchecked {
+                    state_ = new uint[MERSENNE_STATE_N];
+                    state_[0] = seed & 0xffffffff;
+                    for (uint j = 1; j < MERSENNE_STATE_N; j++) {
+                        state_[j] = 1812433253 * (state_[j - 1] ^ (state_[j - 1] >> 30)) + j;
+                        state_[j] &= 0xffffffff;
+                    }
                 }
                 left_ = 1;
                 next_ = 0;
@@ -54,16 +52,18 @@
                 left_ = MERSENNE_STATE_N;
                 next_ = 0;
                 uint y, j;
-                for (j = 0; j < MERSENNE_STATE_N - MERSENNE_STATE_M; j++) {
-                    y = (state_[j] & UMASK) | (state_[j + 1] & LMASK);
-                    state_[j] = state_[j + MERSENNE_STATE_M] ^ (y >> 1) ^ MATRIX_A[y & 0x1];
+                unchecked {
+                    for (j = 0; j < MERSENNE_STATE_N - MERSENNE_STATE_M; j++) {
+                        y = (state_[j] & UMASK) | (state_[j + 1] & LMASK);
+                        state_[j] = state_[j + MERSENNE_STATE_M] ^ (y >> 1) ^ MATRIX_A[y & 0x1];
+                    }
+                    for (; j < MERSENNE_STATE_N - 1; j++) {
+                        y = (state_[j] & UMASK) | (state_[j + 1] & LMASK);
+                        state_[j] = state_[j + (MERSENNE_STATE_M - MERSENNE_STATE_N)] ^ (y >> 1) ^ MATRIX_A[y & 0x1];
+                    }
+                    y = (state_[MERSENNE_STATE_N - 1] & UMASK) | (state_[0] & LMASK);
+                    state_[MERSENNE_STATE_N - 1] = state_[MERSENNE_STATE_M - 1] ^ (y >> 1) ^ MATRIX_A[y & 0x1];
                 }
-                for (; j < MERSENNE_STATE_N - 1; j++) {
-                    y = (state_[j] & UMASK) | (state_[j + 1] & LMASK);
-                    state_[j] = state_[j + (MERSENNE_STATE_M - MERSENNE_STATE_N)] ^ (y >> 1) ^ MATRIX_A[y & 0x1];
-                }
-                y = (state_[MERSENNE_STATE_N - 1] & UMASK) | (state_[0] & LMASK);
-                state_[MERSENNE_STATE_N - 1] = state_[MERSENNE_STATE_M - 1] ^ (y >> 1) ^ MATRIX_A[y & 0x1];
             }
 
             public uint randint32() {
@@ -72,10 +72,12 @@
                     next_state();
                 }
                 uint y = state_[next_++];
-                y ^= y >> 11;
-                y ^= (y << 7) & 0x9d2c5680;
-                y ^= (y << 15) & 0xefc60000;
-                y ^= y >> 18;
+                unchecked {
+                    y ^= y >> 11;
+                    y ^= (y << 7) & 0x9d2c5680;
+                    y ^= (y << 15) & 0xefc60000;
+                    y ^= y >> 18;
+                }
                 return y;
             }
 
@@ -92,50 +94,49 @@
             }
         }
 
-        public static float uniform32(IRNG g, float from = 0f, float to = 1f) {
+        /// <summary>
+        /// The 31-bit multiplicative congruential pseudorandom number generator MCG(1132489760, 2^31 -1) [L'Ecuyer99]
+        /// </summary>
+        public class mcg31m1 {
+            ulong state_;
+            public mcg31m1(uint seed = 1) {
+                state_ = seed % 0x000000007FFFFFFF;
+            }
+
+            public uint randint32() {
+                uint x = (uint)(state_ % 0x000000007FFFFFFF);
+                unchecked {
+                    state_ = (1132489760 * state_) % 0x000000007FFFFFFF;
+                }
+                return x;
+            }
+
+            public ulong randint64() {
+                return ((ulong)randint32() << 32) | randint32();
+            }
+
+            public float randfloat32() {
+                return (float)randint32() / 0x7FFFFFFF;
+            }
+
+            public double randfloat64() {
+                return (double)randint32() / 0x7FFFFFFF;
+            }
+        }
+
+        public static float uniform(IRNG g, float from = 0f, float to = 1f) {
             return (float)g.randfloat32() * (to - from) + from;
         }
 
-        public static void uniform32_(float[] data, IRNG g, float from = 0f, float to = 1f) {
+        public static void uniform_(float[] data, IRNG g, float from = 0f, float to = 1f) {
             fixed (float* ptr = data) {
-                uniform32_(ptr, (uint)data.Length, g, from, to);
+                uniform_(ptr, (uint)data.Length, g, from, to);
             }
         }
 
-        public static void uniform32_(float* data, uint numel, IRNG g, float from = 0f, float to = 1f) {
+        public static void uniform_(float* data, uint numel, IRNG g, float from = 0f, float to = 1f) {
             for (uint t = 0; t < numel; t++) {
-                data[t] = uniform32(g, from , to);
-            }
-        }
-
-        // Box-Muller transform
-
-        static void normal_fill_16(float* data, float mean, float std) {
-            const double EPSILONE = 1e-12;
-            for (uint t = 0; t < 8; t++) {
-                var u1 = 1 - data[t];
-                var u2 = data[t + 8];
-                var radius = Math.Sqrt(-2 * Math.Log(u1 + EPSILONE));
-                var theta = 2.0 * Math.PI * u2;
-                data[t] = (float)(radius * Math.Cos(theta) * std + mean);
-                data[t + 8] = (float)(radius * Math.Sin(theta) * std + mean);
-            }
-        }
-
-        static void normal_fill(float* data, uint numel, IRNG g, float mean, float std) {
-            for (uint t = 0; t < numel; t++) {
-                data[t] = (float)g.randfloat32();
-            }
-            for (uint i = 0; i < numel - 15; i += 16) {
-                normal_fill_16(data + i, mean, std);
-            }
-            if (numel % 16 != 0) {
-                // recompute the last 16 values
-                data = data + numel - 16;
-                for (uint i = 0; i < 16; i++) {
-                    data[i] = (float)g.randfloat32();
-                }
-                normal_fill_16(data, mean, std);
+                data[t] = uniform(g, from , to);
             }
         }
 
@@ -146,9 +147,37 @@
         }
 
         public static void normal_(float* data, uint numel, IRNG g, float mean = 0f, float std = 1f) {
+            // Box-Muller transform
+            // This implementation follows PyTorch so that we are numerically identical when running verification tests.
+            // See https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/cpu/DistributionTemplates.h
+            // See https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/core/DistributionsHelper.h
             const double EPSILONE = 1e-12;
             if (numel >= 16) {
-                normal_fill(data, numel, g, mean, std);
+                for (uint t = 0; t < numel; t++) {
+                    data[t] = (float)g.randfloat32();
+                }
+                for (uint i = 0; i < numel - 15; i += 16) {
+                    _fill_16(data + i, mean, std);
+                }
+                if (numel % 16 != 0) {
+                    // recompute the last 16 values
+                    data = data + numel - 16;
+                    for (uint i = 0; i < 16; i++) {
+                        data[i] = (float)g.randfloat32();
+                    }
+                    _fill_16(data, mean, std);
+                }
+                void _fill_16(float* data, float mean, float std) {
+                    const double EPSILONE = 1e-12;
+                    for (uint t = 0; t < 8; t++) {
+                        var u1 = 1 - data[t];
+                        var u2 = data[t + 8];
+                        var radius = Math.Sqrt(-2 * Math.Log(u1 + EPSILONE));
+                        var theta = 2.0 * Math.PI * u2;
+                        data[t] = (float)(radius * Math.Cos(theta) * std + mean);
+                        data[t + 8] = (float)(radius * Math.Sin(theta) * std + mean);
+                    }
+                }
             } else {
                 double? next_double_normal_sample = null;
                 for (uint t = 0; t < numel; t++) {
@@ -199,7 +228,7 @@
             var gain = calculate_gain(nonlinearity, a);
             var std = gain / Math.Sqrt(fan_in);
             var bound = Math.Sqrt(3.0) * std;
-            uniform32_(data,
+            uniform_(data,
                 numel,
                 g,
                 -(float)bound, (float)bound);
