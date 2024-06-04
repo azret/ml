@@ -16,6 +16,9 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <None Update="bernoulli.py">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="iris.csv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

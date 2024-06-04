@@ -7,11 +7,14 @@
     using static std;
 
     public enum Device {
-        CPU,
-        CUDA
+        cpu,
     }
 
-    [DebuggerDisplay("{global::std.memsize(numbytes)} ({device})")]
+    public enum DataType {
+        float32,
+    }
+
+    [DebuggerDisplay("Tensor<{dtype()}>[{numel()}]: device = {device()}, mem = {global::std.memsize(numbytes),nq}")]
     public unsafe sealed partial class Tensor : CriticalFinalizerObject, IDisposable {
         public static Tensor zeros(uint numel, bool requires_grad = false) {
             return new Tensor(numel, requires_grad);
@@ -58,8 +61,6 @@
 
         public readonly float* grad;
 
-        public readonly Device device;
-
         IntPtr h_ua_data, h_ua_grad;
 
         void alloc_cpu(uint numel, bool requires_grad, out float* data, out float* grad) {
@@ -102,6 +103,14 @@
                 }
                 return numbytes;
             }
+        }
+
+        public DataType dtype() {
+            return DataType.float32;
+        }
+
+        public Device device() {
+            return Device.cpu;
         }
 
         public uint numel() {

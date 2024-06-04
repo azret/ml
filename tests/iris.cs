@@ -81,8 +81,6 @@ internal unsafe class iris {
     }
 
     static void run(TextWriter Console, string data_file, string optim, string loss_fn, float lr) {
-        rng_tests(Console);
-
         var data = File.ReadAllLines(data_file);
 
         // test data loader batching
@@ -242,8 +240,40 @@ internal unsafe class iris {
         Console.WriteLine($"> PATH: {rootPath}");
         Console.WriteLine();
 
+        // =================== Testing RNG =======================
+
+        Console.WriteLine("Testing RNG...");
+        var OUT = File.CreateText(rootPath + "iris.csharp.RNG.txt");
+        try {
+            rng_tests(OUT);
+        } catch {
+        }
+        OUT.Flush();
+        OUT.Close();
+
+        OUT = File.CreateText(rootPath + "iris.pytorch.RNG.txt");
+        OUT.Write(runpy(rootPath + "bernoulli.py"));
+        OUT.Flush();
+        OUT.Close();
+
+        if (File.ReadAllText(rootPath + "iris.csharp.RNG.txt") !=
+            File.ReadAllText(rootPath + "iris.pytorch.RNG.txt")) {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("FAILED!");
+            Console.WriteLine("EXPECTED: " + File.ReadAllText(rootPath + "iris.pytorch.RNG.txt"));
+            Console.WriteLine();
+            Console.WriteLine("ACTUAL: " + File.ReadAllText(rootPath + "iris.csharp.RNG.txt"));
+            exitCode = 1;
+        } else {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("OK.");
+        }
+        Console.ResetColor();
+
+        // =================== Testing SGD =======================
+
         Console.WriteLine("Testing SGD...");
-        var OUT = File.CreateText(rootPath + "iris.csharp.SGD.txt");
+        OUT = File.CreateText(rootPath + "iris.csharp.SGD.txt");
         run(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-3f);
         OUT.Flush();
         OUT.Close();
@@ -263,6 +293,8 @@ internal unsafe class iris {
             Console.WriteLine("OK.");
         }
         Console.ResetColor();
+
+        // =================== Testing AdamW =======================
 
         Console.WriteLine("Testing AdamW...");
         OUT = File.CreateText(rootPath + "iris.csharp.AdamW.txt");
@@ -324,12 +356,21 @@ internal unsafe class iris {
     [DllImport("mkl_rt.2.dll", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     static extern int vslNewStream_64(out IntPtr stream, long brng, ulong seed);
     [DllImport("mkl_rt.2.dll", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    static extern int viRngBernoulli_64(long method, IntPtr stream, long n, int[] r, double p);
+    static extern int viRngBernoulli_64(long method, IntPtr stream, long n, int* r, double p);
 
     static string GetProcessorManufacturerId() {
+        if (!X86Base.IsSupported) return null;
         (int _, int ebx, int ecx, int edx) = X86Base.CpuId(0, 0);
         int* manufacturerId = stackalloc int[3] { ebx, edx, ecx };
         return Encoding.ASCII.GetString((byte*)manufacturerId, 12);
+    }
+
+    static bool IsGenuineIntel() {
+        if (!X86Base.IsSupported) return false;
+        (int _, int ebx, int ecx, int edx) = X86Base.CpuId(0, 0);
+        return ebx == 0x756e6547  /* Genu */
+            && ecx == 0x6c65746e  /* ineI */
+            && edx == 0x49656e69  /* ntel */ ;
     }
 
     private static void rng_tests(TextWriter Console) {
@@ -340,24 +381,30 @@ internal unsafe class iris {
         nn.rand.uniform32_(a.data, a.numel(), g, 0, 1);
         Console.WriteLine(pretty_logits(a.data, a.numel()));
         Console.WriteLine(g.randint32());
-        bernoulli_(a, g);
+        bernoulli_(a, 0.2, g);
         Console.WriteLine(pretty_logits(a.data, a.numel(), 137));
         Console.WriteLine(g.randint32());
         Console.WriteLine("</bernoulli_>");
     }
 
-    private static void bernoulli_(Tensor a, rand.mt19937 g) {
+    private static void bernoulli_(Tensor a, double p, rand.mt19937 g) {
+        if (sizeof(float) != sizeof(int)) throw new InvalidProgramException();
+        if (a == null) throw new ArgumentNullException(nameof(a));
+        if (a.dtype() != DataType.float32) throw new ArgumentException($"Tensor must be of type: {nameof(DataType.float32)}");
         var seed = g.randint32();
         int status = vslNewStream_64(out var stream, (long)VslBrng.MCG31, seed);
         status = vslSkipAheadStream_64(stream, 0);
         var r = new int[a.numel()];
+        // NB: We reuse the same buffer because sizeof(flot) == sizeof(int)
         status = viRngBernoulli_64((long)VslMethodBernoulli.ICDF, stream,
-            r.Length,
-            r,
-            0.2);
+            a.numel(),
+            (int*)a.data,
+            p);
+        if (status != 0) throw new InvalidOperationException($"viRngBernoulli_64: error_code = {status}");
         status = vslDeleteStream_64(ref stream);
         for (int i = 0; i < a.numel(); i++) {
-            a.data[i] = r[i];
+            // NB: After viRngBernoulli_64
+            a.data[i] = *(int*)(&a.data[i]);
         }
     }
 }
