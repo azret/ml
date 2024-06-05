@@ -98,27 +98,47 @@ namespace nn.dev {
                  int I,
                  int O) {
 
-                int b = blockIdx.x * blockDim.x + threadIdx.x;
+                int bo = blockIdx.x * blockDim.x + threadIdx.x;
 
-                if (b < B) {
+                int b = bo / O;
+                int o = bo % O;
+
+                if (b < B && o < O) {
                     float* x = _In + b * I;
                     float* y = _Out + b * O;
+                    float* w = _Weight + o * I;
 
-                    for (int o = 0; o < O; o++) {
-                        float acc = _Bias ? _Bias[o] : 0;
-                        float* w = _Weight + o * I;
-                        for (int i = 0; i < I; i++) {
-                            acc += w[i] * x[i];
-                        }
-                        y[o] = (float)acc;
+                    float acc = _Bias ? _Bias[o] : 0;
+                    for (int i = 0; i < I; i++) {
+                        acc += w[i] * x[i];
                     }
+
+                    y[o] = (float)acc;
                 }
 
             }";
 
         IntPtr _matmul_forward_cu;
 
-        public cuMatMulA() : base(-1) {
+        uint block_size;
+
+        public override string ToString() {
+            return $"cuMatMulA: block_size = {block_size}";
+        }
+
+        public cuMatMulA(uint block_size) : base(-1) {
+            switch (block_size) {
+                case 32:
+                case 64:
+                case 128:
+                case 256:
+                case 512:
+                case 1024:
+                    this.block_size = block_size;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(block_size));
+            }
             printf("> Compiling CUDA kernels...\n");
             byte[] ptx = nvrtcCompileFromSourceCode(CU, "matmul_forward_cu");
             checkCudaErrors(cuModuleLoadData(out var cuModule, ptx));
@@ -179,13 +199,11 @@ namespace nn.dev {
             checkCudaErrors(cuMemcpyHtoD_v2(_d_data_Weight, _Weight, cu_Weight.numel() * sizeof(float)));
             checkCudaErrors(cuMemcpyHtoD_v2(_d_data_Bias, _Bias, cu_Bias.numel() * sizeof(float)));
 
-            uint block_size = 32;
-
             void*[] args = { &_d_data_Out, &_d_data_In, &_d_data_Weight, &_d_data_Bias, &B, &I, &O };
 
             checkCudaErrors(cuLaunchKernel(
                 _matmul_forward_cu,
-                CEIL_DIV(B, block_size), 1, 1,
+                CEIL_DIV(B * O, block_size), 1, 1,
                 block_size, 1, 1,
                 0,
                 IntPtr.Zero,

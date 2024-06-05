@@ -33,7 +33,7 @@
             float* _Out,       /* [N] */
             float* d_Out,       /* [N] */
             uint N,
-            float[] target) {
+            float* target) {
 
             if (_Out == null) throw new ArgumentNullException(nameof(_Out));
             if (d_Out == null) throw new ArgumentNullException(nameof(d_Out));
@@ -53,28 +53,34 @@
 
         public static double binary_cross_entropy(
             Tensor output,
-            float[] target) {
+            Tensor target) {
 
             const double EPSILON = 1e-12f;
 
             if (output is null) throw new ArgumentNullException(nameof(output));
             if (target is null) throw new ArgumentNullException(nameof(target));
 
+            if (target.numel() != output.numel())
+                throw new ArgumentOutOfRangeException(nameof(output), $"number of '{nameof(output)}' and '{nameof(target)}' elements must match");
+
             uint N = output.numel();
 
             double acc = 0;
 
+            float* _Out = output.data;
+            float* _Target = target.data;
+
             for (int n = 0; n < N; n++) {
 
-                if (output.data[n] < 0f || output.data[n] > 1f || float.IsNaN(output.data[n])) throw new ArgumentOutOfRangeException(nameof(target), $"all elements of '{nameof(output)}' should be between 0 and 1");
-                if (target[n] < 0f || target[n] > 1f || float.IsNaN(target[n])) throw new ArgumentOutOfRangeException(nameof(target), $"all elements of '{nameof(target)}' should be between 0 and 1");
+                if (_Out[n] < 0f || _Out[n] > 1f || float.IsNaN(_Out[n])) throw new ArgumentOutOfRangeException(nameof(output), $"all elements of '{nameof(output)}' should be between 0 and 1");
+                if (_Target[n] < 0f || _Target[n] > 1f || float.IsNaN(_Target[n])) throw new ArgumentOutOfRangeException(nameof(target), $"all elements of '{nameof(target)}' should be between 0 and 1");
 
-                acc += -(Math.Log(output.data[n] + EPSILON) * target[n]
-                          + (1.0 - target[n]) * Math.Log(1.0 - output.data[n] + EPSILON));
+                acc += -(Math.Log(_Out[n] + EPSILON) * _Target[n]
+                          + (1.0 - _Target[n]) * Math.Log(1.0 - _Out[n] + EPSILON));
 
-                output.grad[n] = (float)((output.data[n] - target[n]) /
+                output.grad[n] = (float)((_Out[n] - _Target[n]) /
                     Math.Max(
-                        (1.0 - output.data[n]) * output.data[n],
+                        (1.0 - _Out[n]) * _Out[n],
                         EPSILON) / N);
             }
 

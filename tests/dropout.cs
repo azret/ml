@@ -51,12 +51,12 @@ unsafe internal static class dropout {
         Console.WriteLine("output:");
         Console.WriteLine(Common.pretty_logits(output.data, output.numel(), 0xFFFFFFFF));
         Console.WriteLine(g.randint32());
-        var target = new float[] { 1, 1, 1, 1, 1, 1, 1 };
+        var target = Tensor.ones(7);
         var loss = F.mse_loss(
             output.data,
             output.grad,
             output.numel(),
-            target);
+            target.data);
         Console.WriteLine("loss:");
         Console.WriteLine($"[{loss:f4}]");
         if (dropout != null) {

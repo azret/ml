@@ -27,7 +27,12 @@ namespace nn.dev {
                 new MatMulC(),
                 new MatMulAVX(),
                 new MatMulAVX2(),
-                new cuMatMulA(),
+                new cuMatMulA(32),
+                new cuMatMulA(64),
+                new cuMatMulA(128),
+                new cuMatMulA(256),
+                new cuMatMulA(512),
+                new cuMatMulA(1024),
             };
 
             uint B = 32;
@@ -95,7 +100,7 @@ namespace nn.dev {
                 for (int i = 0; i < _k_Mem_Out.numel(); i++) { _k_Mem_Out.data[i] = urandf(&seed) * 2.0f - 1.0f; }
                 for (int i = 0; i < _k_Mem_Out.numel(); i++) { _k_Mem_Out.grad[i] = urandf(&seed) * 2.0f - 1.0f; }
 
-                Console.WriteLine($"== kernel #{kernel} ({kernels[kernel].GetType()}) ==");
+                Console.WriteLine($"== kernel #{kernel} ({kernels[kernel]}) ==");
 
                 MatMul.forward(
                     _k_Mem_Out.data,
@@ -147,18 +152,21 @@ namespace nn.dev {
 
             if (all_ok) {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"\nALL OK");
+                Console.WriteLine($"ALL OK");
                 Console.ResetColor();
             } else {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"\nFAILED.");
+                Console.WriteLine($"FAILED.");
                 Console.ResetColor();
             }
+
+            Console.WriteLine();
 
             for (int kernel = 0; kernel < kernels.Length; kernel++) {
                 var MatMul = kernels[kernel];
 
                 ulong start = millis();
+
                 for (int i = 0; i < 64; i++) {
                     MatMul.forward(
                         _k_Mem_Out.data,
@@ -169,8 +177,10 @@ namespace nn.dev {
                         I,
                         O);
                 }
+
                 double elapsed = ((double)millis() - start);
-                Console.WriteLine($"kernel #{kernel} forward ({kernels[kernel].GetType()}), {elapsed:0.00} ms");
+
+                Console.WriteLine($"kernel #{kernel} forward ({kernels[kernel]}), {elapsed:0.00} ms");
 
                 start = millis();
                 for (int i = 0; i < 64; i++) {
@@ -187,9 +197,10 @@ namespace nn.dev {
                         I,
                         O);
                 }
-                
+
                 elapsed = ((double)millis() - start);
-                Console.WriteLine($"kernel #{kernel} backward ({kernels[kernel].GetType()}), {elapsed:0.00} ms");
+
+                Console.WriteLine($"kernel #{kernel} backward ({kernels[kernel]}), {elapsed:0.00} ms");
             }
 
             checkCudaErrors(cuCtxDestroy_v2(ctx));

@@ -94,12 +94,8 @@ unsafe internal static class iris {
             Console.WriteLine($"fc2.bias: {Common.pretty_logits(fc2._Bias.data, fc2._Bias.numel())}");
         }
 
-        var x = Tensor.zeros(batch_size * fc1.I);
-        var y = new float[batch_size * fc2.O];
-
-        for (int i = 0; i < y.Length; i++) {
-            y[i] = float.NaN;
-        }
+        var x = Tensor.NaN(batch_size * fc1.I);
+        var y = Tensor.NaN(batch_size * fc2.O);
 
         IOptimizer optimizer = null;
 
@@ -117,7 +113,8 @@ unsafe internal static class iris {
         Console.WriteLine("train:");
 
         for (uint epoch = 0; epoch < epochs; epoch++) {
-            data_iter.MoveNext();
+            if (!data_iter.MoveNext()) break;
+
             var sample = data_iter.Current;
 
             Console.WriteLine($"batch_size: {sample.B}");
@@ -136,9 +133,11 @@ unsafe internal static class iris {
 
             n = 0;
 
+            y.resize(sample.B * fc2.O);
+
             for (int i = 0; i < sample.B; i++) {
                 for (int j = 0; j < sample.y[i].Length; j++) {
-                    y[n++] = sample.y[i][j];
+                    y.data[n++] = sample.y[i][j];
                 }
             }
 
@@ -159,7 +158,7 @@ unsafe internal static class iris {
                     logits.data,
                     logits.grad,
                     logits.numel(),
-                    y);
+                    y.data);
 
             Console.WriteLine($"{epoch}: loss: {loss:f4}");
 
