@@ -7,7 +7,7 @@ unsafe internal static class Common {
         }
     }
 
-    public static string pretty_logits(float* logits0, uint cc, uint max_ = 7) {
+    public static string pretty_logits(float* logits0, uint cc, uint max_ = 0xFFFFFFFF) {
         uint n = Math.Min(cc, max_);
         string row = "[";
         for (int j = 0; j < n; j++) {

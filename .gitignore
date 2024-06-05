@@ -31,3 +31,4 @@
 /tests/bin
 
 /efi
+/tests/__pycache__

@@ -7,10 +7,10 @@ using System.Linq;
 using nn;
 
 unsafe internal static class iris {
-    static IEnumerable<(float[][] x, float[][] y, int len)> get_batch(string[] data, int B) {
+    static IEnumerable<(float[][] x, float[][] y, uint B)> get_batch(string[] data, uint B) {
         int i = 0;
         while (true) {
-            int take = B;
+            int take = checked((int)B);
             if (i + take > data.Length)
                 take = data.Length - i;
             var x = data.Skip(i).Take(take).ToArray().Select(
@@ -27,7 +27,7 @@ unsafe internal static class iris {
                 }).ToArray();
             Debug.Assert(x.Length == take);
             Debug.Assert(y.Length == take);
-            yield return (x, y, take);
+            yield return (x, y, (uint)take);
             i += take;
             if (i >= data.Length)
                 i = 0;
@@ -52,7 +52,8 @@ unsafe internal static class iris {
         }
     }
 
-    public static void run(TextWriter Console, string data_file, string optim, string loss_fn, float lr) {
+    public static void run(TextWriter Console, string data_file, string optim, string loss_fn, float lr, uint batch_size) {
+
         var data = File.ReadAllLines(data_file);
 
         // test data loader batching
@@ -93,10 +94,9 @@ unsafe internal static class iris {
             Console.WriteLine($"fc2.bias: {Common.pretty_logits(fc2._Bias.data, fc2._Bias.numel())}");
         }
 
-        const int batch_size = 10;
-
         var x = Tensor.zeros(batch_size * fc1.I);
         var y = new float[batch_size * fc2.O];
+
         for (int i = 0; i < y.Length; i++) {
             y[i] = float.NaN;
         }
@@ -120,15 +120,23 @@ unsafe internal static class iris {
             data_iter.MoveNext();
             var sample = data_iter.Current;
 
+            Console.WriteLine($"batch_size: {sample.B}");
+
             int n = 0;
-            for (int i = 0; i < sample.len; i++) {
+
+            x.resize(sample.B * fc1.I);
+
+            for (int i = 0; i < sample.B; i++) {
                 for (int j = 0; j < sample.x[i].Length; j++) {
                     x.data[n++] = sample.x[i][j];
                 }
             }
 
+            Console.WriteLine($"x: {Common.pretty_logits(x.data, x.numel())}");
+
             n = 0;
-            for (int i = 0; i < sample.len; i++) {
+
+            for (int i = 0; i < sample.B; i++) {
                 for (int j = 0; j < sample.y[i].Length; j++) {
                     y[n++] = sample.y[i][j];
                 }
@@ -137,6 +145,7 @@ unsafe internal static class iris {
             var start_time = kernel32.millis();
 
             var logits = model.forward(x);
+
             Console.WriteLine($"{epoch}: logits: {Common.pretty_logits(logits.data, logits.numel())}");
 
             double loss = double.NaN;
@@ -187,10 +196,9 @@ unsafe internal static class iris {
             data_iter.MoveNext();
             var sample = data_iter.Current;
             int n = 0;
-            for (int i = 0; i < sample.len; i++) {
-                for (int j = 0; j < sample.x[i].Length; j++) {
-                    x.data[n++] = sample.x[i][j];
-                }
+            Debug.Assert(sample.B == 1);
+            for (int j = 0; j < sample.x[0].Length; j++) {
+                x.data[n++] = sample.x[0][j];
             }
             var logits = model.forward(x);
             Console.WriteLine($"{s}: logits: {Common.pretty_logits(logits.data, logits.numel())}");

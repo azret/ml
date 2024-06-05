@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-def pretty_logits(logits, max_ = 7):
-    logits0 = logits.view(-1)
+def pretty_logits(logits, max_ = 0xFFFFFFFF):
+    logits0 = logits.contiguous().view(-1)
     row = "["
     cc = len(logits0)
     n = min(cc, max_)

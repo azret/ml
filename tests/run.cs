@@ -71,12 +71,12 @@ internal unsafe class Run {
 
         Console.WriteLine("Testing SGD...");
         var OUT = File.CreateText(rootPath + "iris.csharp.SGD.txt");
-        iris.run(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-3f);
+        iris.run(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-3f, batch_size: 40);
         OUT.Flush();
         OUT.Close();
 
         OUT = File.CreateText(rootPath + "iris.pytorch.SGD.txt");
-        OUT.Write(runpy(rootPath + "iris.py --batch_size 10 --optim SGD --lr 1e-3 --loss MSELoss"));
+        OUT.Write(runpy(rootPath + "iris.py --batch_size 40 --optim SGD --lr 1e-3 --loss MSELoss"));
         OUT.Flush();
         OUT.Close();
 
@@ -95,12 +95,12 @@ internal unsafe class Run {
 
         Console.WriteLine("Testing AdamW...");
         OUT = File.CreateText(rootPath + "iris.csharp.AdamW.txt");
-        iris.run(OUT, rootPath + "iris.csv", "AdamW", "BCELoss", 1e-6f);
+        iris.run(OUT, rootPath + "iris.csv", "AdamW", "BCELoss", 1e-6f, batch_size: 30);
         OUT.Flush();
         OUT.Close();
 
         OUT = File.CreateText(rootPath + "iris.pytorch.AdamW.txt");
-        OUT.Write(runpy(rootPath + "iris.py --batch_size 10 --optim AdamW --lr 1e-6 --loss BCELoss"));
+        OUT.Write(runpy(rootPath + "iris.py --batch_size 30 --optim AdamW --lr 1e-6 --loss BCELoss"));
         OUT.Flush();
         OUT.Close();
 

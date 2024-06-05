@@ -15,7 +15,7 @@
         float32,
     }
 
-    [DebuggerDisplay("Tensor<{dtype()}>[{numel()}]: device = {device()}, mem = {global::std.memsize(numbytes),nq}")]
+    [DebuggerDisplay("Tensor<{dtype()}>[{numel()}]: device = {device()}, mem = {global::std.memsize(memsize),nq}")]
     public unsafe sealed partial class Tensor : CriticalFinalizerObject, IDisposable {
         public static Tensor zeros(uint numel, bool requires_grad = false) {
             return new Tensor(numel, requires_grad);
@@ -43,10 +43,12 @@
 
         const ulong ALIGNMENT = 4096ul;
 
+        uint _available;
+
         uint _numel;
 
         public Tensor(uint numel, bool requires_grad = true) : base() {
-            alloc_cpu(numel, requires_grad, out data, out grad);
+            cpuMemAlloc(numel, requires_grad, out data, out grad);
         }
 
         ~Tensor() {
@@ -54,7 +56,7 @@
         }
 
         public void Dispose() {
-            free_cpu();
+            cpuMemFree();
             GC.SuppressFinalize(this);
         }
 
@@ -64,36 +66,40 @@
 
         IntPtr h_ua_data, h_ua_grad;
 
-        void alloc_cpu(uint numel, bool requires_grad, out float* data, out float* grad) {
+        void cpuMemAlloc(uint numel, bool requires_grad, out float* data, out float* grad) {
+            data = null; grad = null;
             try {
-                _numel = numel; data = null; grad = null;
-                if (_numel > 0) {
-                    h_ua_data = (IntPtr)malloc(ALIGNMENT + (ulong)_numel * sizeof(float));
-                    memset((void*)h_ua_data, 0, ALIGNMENT + sizeof(float) * (ulong)_numel);
+                if (numel > 0) {
+                    h_ua_data = (IntPtr)malloc(ALIGNMENT + (ulong)numel * sizeof(float));
+                    memset((void*)h_ua_data, 0, ALIGNMENT + sizeof(float) * (ulong)numel);
                 }
-                if (_numel > 0 && requires_grad) {
-                    h_ua_grad = (IntPtr)malloc(ALIGNMENT + (ulong)_numel * sizeof(float));
-                    memset((void*)h_ua_grad, 0, ALIGNMENT + sizeof(float) * (ulong)_numel);
+                if (numel > 0 && requires_grad) {
+                    h_ua_grad = (IntPtr)malloc(ALIGNMENT + (ulong)numel * sizeof(float));
+                    memset((void*)h_ua_grad, 0, ALIGNMENT + sizeof(float) * (ulong)numel);
                 }
                 // We need to ensure that the host memory is aligned to 4K
                 if (h_ua_data != IntPtr.Zero) data = (float*)(((ulong)h_ua_data + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
                 if (h_ua_grad != IntPtr.Zero) grad = (float*)(((ulong)h_ua_grad + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
+
+                _numel = numel;
+                _available = numel;
             } catch {
                 data = null;
                 grad = null;
                 _numel = 0;
-                if (h_ua_grad != IntPtr.Zero) global::std.free((void*)h_ua_grad);
-                if (h_ua_data != IntPtr.Zero) global::std.free((void*)h_ua_data);
+                _available = 0;
+                if (h_ua_grad != IntPtr.Zero) free((void*)h_ua_grad);
+                if (h_ua_data != IntPtr.Zero) free((void*)h_ua_data);
                 throw;
             }
         }
 
-        void free_cpu() {
+        void cpuMemFree() {
             free((void*)Interlocked.Exchange(ref h_ua_data, IntPtr.Zero));
             free((void*)Interlocked.Exchange(ref h_ua_grad, IntPtr.Zero));
         }
 
-        public ulong numbytes {
+        public ulong memsize {
             get {
                 ulong numbytes = 0;
                 if (h_ua_data != IntPtr.Zero) {
@@ -119,7 +125,7 @@
         }
 
         public void resize(uint value) {
-            if (_numel >= value) {
+            if (value <= _available) {
                 _numel = value;
             } else {
                 throw new NotImplementedException();
@@ -229,9 +235,11 @@
         }
 
         public void zero_grad() {
-            kernel32.ZeroMemory(
-                grad,
-                (UIntPtr)((ulong)numel() * sizeof(float)));
+            if (grad != null) {
+                kernel32.ZeroMemory(
+                    grad,
+                    numel() * sizeof(float));
+            }
         }
     }
 }

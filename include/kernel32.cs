@@ -79,7 +79,7 @@ public static class kernel32 {
     public static extern unsafe void LocalFree(void* handle);
 
     [DllImport("kernel32.dll", EntryPoint = "RtlZeroMemory")]
-    internal static extern unsafe void ZeroMemory(void* address, UIntPtr length);
+    internal static extern unsafe void ZeroMemory(void* address, ulong length);
 
     public static IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
 

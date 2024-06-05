@@ -39,7 +39,6 @@
             if (d_Out == null) throw new ArgumentNullException(nameof(d_Out));
 
             if (target is null) throw new ArgumentNullException(nameof(target));
-            if (target.Length != N) throw new ArgumentException("size mismatch", nameof(target));
 
             double sum = 0f;
 
@@ -61,7 +60,7 @@
             if (output is null) throw new ArgumentNullException(nameof(output));
             if (target is null) throw new ArgumentNullException(nameof(target));
 
-            int N = target.Length;
+            uint N = output.numel();
 
             double acc = 0;
 

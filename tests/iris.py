@@ -132,13 +132,18 @@ if __name__ == "__main__":
     data_iter = iter(get_batch(args.batch_size))
 
     model.train();
+
     print("train:");
 
     for epoch in range(num_epochs):
         x, y, take = next(data_iter)
-        logits = model(torch.from_numpy(x))
+        x = torch.from_numpy(x)
+        y = torch.from_numpy(y)
+        print(f'batch_size: {take}')
+        print(f'x: {pretty_logits(x)}')
+        logits = model(x)
         print(f'{epoch}: logits: {pretty_logits(logits)}')
-        loss = criterion(logits, torch.from_numpy(y))
+        loss = criterion(logits, y)
         print(f'{epoch}: loss: {loss.item():.4f}')
         optimizer.zero_grad()
         loss.backward()
