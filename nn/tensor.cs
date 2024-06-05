@@ -8,6 +8,7 @@
 
     public enum Device {
         cpu,
+        cuda,
     }
 
     public enum DataType {

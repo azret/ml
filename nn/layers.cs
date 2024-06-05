@@ -3,6 +3,7 @@
     using System.Collections;
     using System.Collections.Generic;
     using System.Diagnostics;
+    using nn.CPU;
 
     public interface ICompute {
         Tensor forward(Tensor input);
@@ -341,9 +342,9 @@
         }
     }
 
-    [DebuggerDisplay("nn.Linear<{typeof(T_MatMul).Name,nq}> ({I}, {O})")]
-    public unsafe class Linear<T_MatMul> : ILayer where T_MatMul: F.MatMul, new() {
-        T_MatMul _MatMul;
+    [DebuggerDisplay("nn.Linear ({I}, {O})")]
+    public unsafe class Linear : ILayer {
+        F.MatMul _MatMul;
 
         public readonly uint I;
         public readonly uint O;
@@ -363,22 +364,21 @@
             }
             I = (uint)in_features;
             O = (uint)out_features;
-            _MatMul = new T_MatMul();
-            _Weight = new Tensor(checked(O * I), requires_grad: true);
+            _Weight = new Tensor(O * I, requires_grad: true);
             _Bias = bias
                 ? new Tensor(O, requires_grad: true)
                 : null;
         }
 
         public void Dispose() {
-            if (_MatMul != null) _MatMul.Dispose();
-            _MatMul = null;
             if (_Out != null) _Out.Dispose();
             _Out = null;
             if (_In != null) _In.Dispose();
             _In = null;
             if (_Bias != null) _Bias.Dispose();
             if (_Weight != null) _Weight.Dispose();
+            if (_MatMul != null) _MatMul.Dispose();
+            _MatMul = null;
         }
 
         public IEnumerable<Tensor> parameters() {
@@ -390,7 +390,7 @@
         public void train() { }
 
         public Tensor forward(Tensor input) {
-            if (_MatMul == null) throw new ObjectDisposedException(GetType().FullName);
+            if (_Weight == null) throw new ObjectDisposedException(GetType().FullName);
 
             uint N = input.numel();
 
@@ -431,7 +431,7 @@
         }
 
         public Tensor backward(Tensor output) {
-            if (_MatMul == null) throw new ObjectDisposedException(GetType().FullName);
+            if (_Weight == null) throw new ObjectDisposedException(GetType().FullName);
 
             uint N = output.numel();
 
@@ -456,12 +456,6 @@
                 O);
 
             return _In;
-        }
-    }
-
-    public class Linear : Linear<F.MatMul> {
-        public Linear(int in_features, int out_features, bool bias = true)
-            : base(in_features, out_features, bias) {
         }
     }
 }

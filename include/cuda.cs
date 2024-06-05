@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 public static class cuda {
     static cuda() {
@@ -283,6 +284,13 @@ public static class cuda {
 
     [DllImport("nvcuda")]
     public static extern CUresult cuMemFree_v2(IntPtr dptr);
+    public static CUresult cuMemFree_v2(ref IntPtr dptr) {
+        IntPtr ptr = Interlocked.Exchange(ref dptr, IntPtr.Zero);
+        if (ptr == IntPtr.Zero) {
+            return CUresult.CUDA_SUCCESS;
+        }
+        return cuMemFree_v2(ptr);
+    }
 
     [DllImport("nvcuda")]
     public static extern unsafe CUresult cuMemcpyHtoD_v2(IntPtr dstDevice, void* srcHost, ulong ByteCount);

@@ -110,7 +110,7 @@
         T_forward _matmul_forward_cpu_func;
         T_backward _matmul_backward_cpu_func;
 
-        public MatMulC(byte[] matmul_forward_cpu_asm, byte[] matmul_backward_cpu_asm) : base() {
+        public MatMulC(byte[] matmul_forward_cpu_asm, byte[] matmul_backward_cpu_asm) : base(-1) {
             if (!(matmul_forward_cpu_asm is null)) {
                 _matmul_forward_cpu_func = alloc<T_forward>(
                     matmul_forward_cpu_asm, out _p_matmul_forward_cpu_ptr);
@@ -179,7 +179,7 @@
                     I,
                     O);
             } else {
-                F.matmul_forward_cpu(
+                base.forward(
                     _Out,
                     _In,
                     _Weight,
@@ -217,7 +217,7 @@
                     I,
                     O);
             } else {
-                F.matmul_backward_cpu(
+                base.backward(
                     _Out,
                     d_Out,
                     _In,

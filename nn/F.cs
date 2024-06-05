@@ -2,6 +2,7 @@
     using System;
     using System.Runtime.ConstrainedExecution;
     using System.Runtime.InteropServices;
+    using System.Threading.Tasks;
 
     public static unsafe partial class F {
         public unsafe class Kernel : CriticalFinalizerObject, IDisposable {
@@ -203,6 +204,28 @@
             }
         }
 
+        static unsafe void matmul_forward_kernel_cpu(
+            float* _Out,       /* [B, O] */
+            float* _In,        /* [B, I] */
+            float* _Weight,    /* [I, O] */
+            float* _Bias,      /* [O] */
+            uint b,
+            uint I,
+            uint O) {
+
+            float* x = _In + b * I;
+            float* y = _Out + b * O;
+
+            for (int o = 0; o < O; o++) {
+                float acc = _Bias != null ? _Bias[o] : 0;
+                float* w = _Weight + o * I;
+                for (int i = 0; i < I; i++) {
+                    acc += w[i] * x[i];
+                }
+                y[o] = (float)acc;
+            }
+        }
+
         public static unsafe void matmul_forward_cpu(
             float* _Out,       /* [B, O] */
             float* _In,        /* [B, I] */
@@ -210,18 +233,60 @@
             float* _Bias,      /* [O] */
             uint B,
             uint I,
+            uint O,
+            int maxDegreeOfParallelism) {
+
+            if (maxDegreeOfParallelism != 0) {
+                Parallel.For(0, B, (b) => {
+                    matmul_forward_kernel_cpu(
+                        _Out,
+                        _In,
+                        _Weight,
+                        _Bias,
+                        (uint)b,
+                        I,
+                        O);
+                });
+            } else {
+                for (uint b = 0; b < B; b++) {
+                    matmul_forward_kernel_cpu(
+                        _Out,
+                        _In,
+                        _Weight,
+                        _Bias,
+                        b,
+                        I,
+                        O);
+                }
+            }
+        }
+
+        public static void matmul_backward_kernel_cpu(
+            float* _Out,       /* [B, O] */
+            float* d_Out,       /* [B, O] */
+            float* _In,        /* [B, I] */
+            float* d_In,        /* [B, I] */
+            float* _Weight,    /* [I, O] */
+            float* d_Weight,    /* [I, O] */
+            float* _Bias,      /* [O] */
+            float* d_Bias,      /* [O] */
+            uint b,
+            uint I,
             uint O) {
 
-            for (int b = 0; b < B; b++) {
-                float* x = _In + b * I;
-                float* y = _Out + b * O;
-                for (int o = 0; o < O; o++) {
-                    float acc = _Bias != null ? _Bias[o] : 0;
-                    float* w = _Weight + o * I;
-                    for (int i = 0; i < I; i++) {
-                        acc += w[i] * x[i];
-                    }
-                    y[o] = (float)acc;
+            float* p_In = _In + b * I;
+            float* p_d_In = d_In + b * I;
+
+            for (int o = 0; o < O; o++) {
+                float grad = d_Out[b * O + o];
+                float* p_Weight = _Weight + o * I;
+                float* p_d_Weight = d_Weight + o * I;
+                for (int i = 0; i < I; i++) {
+                    p_d_In[i] += p_Weight[i] * grad;
+                    p_d_Weight[i] += p_In[i] * grad;
+                }
+                if (d_Bias != null) {
+                    d_Bias[o] += grad;
                 }
             }
         }
@@ -237,27 +302,32 @@
             float* d_Bias,      /* [O] */
             uint B,
             uint I,
-            uint O) {
+            uint O,
+            int maxDegreeOfParallelism) {
 
-            for (int b = 0; b < B; b++) {
-                float* p_In = _In + b * I;
-                float* p_d_In = d_In + b * I;
-                for (int o = 0; o < O; o++) {
-                    float grad = d_Out[b * O + o];
-                    float* p_Weight = _Weight + o * I;
-                    float* p_d_Weight = d_Weight + o * I;
-                    for (int i = 0; i < I; i++) {
-                        p_d_In[i] += p_Weight[i] * grad;
-                        p_d_Weight[i] += p_In[i] * grad;
-                    }
-                    if (d_Bias != null) {
-                        d_Bias[o] += grad;
-                    }
-                }
+            for (uint b = 0; b < B; b++) {
+                matmul_backward_kernel_cpu(
+                    _Out,
+                    d_Out,
+                    _In,
+                    d_In,
+                    _Weight,
+                    d_Weight,
+                    _Bias,
+                    d_Bias,
+                    b,
+                    I,
+                    O);
             }
         }
 
         public unsafe class MatMul : Kernel {
+            int _maxDegreeOfParallelism;
+
+            public MatMul(int maxDegreeOfParallelism) {
+                _maxDegreeOfParallelism = maxDegreeOfParallelism;
+            }
+
             [UnmanagedFunctionPointer(CallingConvention.StdCall)]
             public unsafe delegate void T_forward(
                 float* _Out,       /* [B, O] */
@@ -298,7 +368,8 @@
                     _Bias,
                     B,
                     I,
-                    O);
+                    O,
+                    _maxDegreeOfParallelism);
             }
 
             public virtual void backward(
@@ -325,7 +396,8 @@
                     d_Bias,
                     B,
                     I,
-                    O);
+                    O,
+                    _maxDegreeOfParallelism);
             }
         }
     }

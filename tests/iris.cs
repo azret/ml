@@ -6,8 +6,6 @@ using System.Linq;
 
 using nn;
 
-using Linear = nn.Linear<nn.CPU.MatMulC>;
-
 unsafe internal static class iris {
     static IEnumerable<(float[][] x, float[][] y, int len)> get_batch(string[] data, int B) {
         int i = 0;
