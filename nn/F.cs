@@ -266,34 +266,42 @@
             }
         }
 
-        public static void matmul_backward_kernel_cpu(
-            float* _Out,       /* [B, O] */
-            float* d_Out,       /* [B, O] */
-            float* _In,        /* [B, I] */
-            float* d_In,        /* [B, I] */
-            float* _Weight,    /* [I, O] */
-            float* d_Weight,    /* [I, O] */
-            float* _Bias,      /* [O] */
-            float* d_Bias,      /* [O] */
-            uint b,
+        public static unsafe void matmul_backward(
+            float* d_In,
+            float* d_Weight,
+            float* d_Bias,
+            float* d_Out,
+            float* _In,
+            float* _Weight,
+            uint B,
             uint I,
             uint O) {
 
-            float* p_In = _In + b * I;
-            float* p_d_In = d_In + b * I;
+            Parallel.For(0, B, (b) => {
+                float* dout_bt = d_Out + b * O;
+                float* dinp_bt = d_In + b * I;
 
-            for (int o = 0; o < O; o++) {
-                float grad = d_Out[b * O + o];
-                float* p_Weight = _Weight + o * I;
-                float* p_d_Weight = d_Weight + o * I;
-                for (int i = 0; i < I; i++) {
-                    p_d_In[i] += p_Weight[i] * grad;
-                    p_d_Weight[i] += p_In[i] * grad;
+                for (int o = 0; o < O; o++) {
+                    float* wrow = _Weight + o * I;
+                    float d = dout_bt[o];
+                    for (int i = 0; i < I; i++) {
+                        dinp_bt[i] += wrow[i] * d;
+                    }
                 }
-                if (d_Bias != null) {
-                    d_Bias[o] += grad;
+            });
+
+            Parallel.For(0, O, (o) => {
+                for (int b = 0; b < B; b++) {
+                    float* dout_bt = d_Out + b * O;
+                    float* inp_bt = _In + b * I;
+                    float* dwrow = d_Weight + o * I;
+                    float d = dout_bt[o];
+                    if (d_Bias != null) { d_Bias[o] += d; }
+                    for (int i = 0; i < I; i++) {
+                        dwrow[i] += inp_bt[i] * d;
+                    }
                 }
-            }
+            });
         }
 
         public static void matmul_backward_cpu(
@@ -310,27 +318,48 @@
             uint O,
             int maxDegreeOfParallelism) {
 
-            for (uint b = 0; b < B; b++) {
-                matmul_backward_kernel_cpu(
-                    _Out,
+            if (maxDegreeOfParallelism != 0) {
+
+                matmul_backward(
+                    d_In,
+                    d_Weight,
+                    d_Bias,
                     d_Out,
                     _In,
-                    d_In,
                     _Weight,
-                    d_Weight,
-                    _Bias,
-                    d_Bias,
-                    b,
+                    B,
                     I,
                     O);
+
+            } else {
+                for (uint b = 0; b < B; b++) {
+                    float* p_In = _In + b * I;
+                    float* p_d_In = d_In + b * I;
+                    for (int o = 0; o < O; o++) {
+                        float grad = d_Out[b * O + o];
+                        float* p_Weight = _Weight + o * I;
+                        float* p_d_Weight = d_Weight + o * I;
+                        for (int i = 0; i < I; i++) {
+                            p_d_In[i] += p_Weight[i] * grad;
+                            p_d_Weight[i] += p_In[i] * grad;
+                        }
+                        if (d_Bias != null) {
+                            d_Bias[o] += grad;
+                        }
+                    }
+                }
             }
         }
 
         public unsafe class MatMul : Kernel {
-            int _maxDegreeOfParallelism;
+            protected readonly int _maxDegreeOfParallelism;
 
             public MatMul(int maxDegreeOfParallelism) {
                 _maxDegreeOfParallelism = maxDegreeOfParallelism;
+            }
+
+            public override string ToString() {
+                return $"{GetType().Name}: threads = {_maxDegreeOfParallelism}";
             }
 
             [UnmanagedFunctionPointer(CallingConvention.StdCall)]

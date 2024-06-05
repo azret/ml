@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.ConstrainedExecution;
+using System.Threading;
 
 using static cuda;
 using static nvrtc;
@@ -7,6 +8,7 @@ using static std;
 
 namespace nn.dev {
     public unsafe sealed partial class cuTensor : CriticalFinalizerObject, IDisposable {
+        uint _capacity;
         uint _numel;
 
         public cuTensor(uint numel, bool requires_grad = true) : base() {
@@ -22,6 +24,13 @@ namespace nn.dev {
             GC.SuppressFinalize(this);
         }
 
+        public static void Dispose(ref cuTensor t) {
+            var p = Interlocked.Exchange(ref t, null);
+            if (p != null) {
+                p.Dispose();
+            }
+        }
+
         public readonly IntPtr data;
         public readonly IntPtr grad;
 
@@ -35,6 +44,7 @@ namespace nn.dev {
                     checkCudaErrors(cuMemAlloc_v2(out grad, (ulong)numel * sizeof(float)));
                 }
                 _numel = numel;
+                _capacity = numel;
             } catch {
                 cuMemFree_v2(ref data);
                 cuMemFree_v2(ref grad);
@@ -43,6 +53,8 @@ namespace nn.dev {
         }
 
         void cuMemFree() {
+            _numel = 0;
+            _capacity = 0;
             cuMemFree_v2(data);
             cuMemFree_v2(grad);
         }
@@ -73,7 +85,7 @@ namespace nn.dev {
         }
 
         public void resize(uint value) {
-            if (_numel >= value) {
+            if (value <= _capacity) {
                 _numel = value;
             } else {
                 throw new NotImplementedException();
@@ -139,67 +151,65 @@ namespace nn.dev {
                 default:
                     throw new ArgumentOutOfRangeException(nameof(block_size));
             }
-            printf("> Compiling CUDA kernels...\n");
             byte[] ptx = nvrtcCompileFromSourceCode(CU, "matmul_forward_cu");
             checkCudaErrors(cuModuleLoadData(out var cuModule, ptx));
             checkCudaErrors(cuModuleGetFunction(
                 out _matmul_forward_cu,
                 cuModule,
                 "matmul_forward_cu"));
-            printf("> Done.\n\n");
         }
 
         protected override void Dispose(bool disposing) {
-            cu_In?.Dispose();
-            cu_Out?.Dispose();
-            cu_Weight?.Dispose();
-            cu_Bias?.Dispose();
+            cuTensor.Dispose(ref _cuIn);
+            cuTensor.Dispose(ref _cuOut);
+            cuTensor.Dispose(ref _cuWeight);
+            cuTensor.Dispose(ref _cuBias);
             base.Dispose(disposing);
         }
 
-        cuTensor cu_In;
-        cuTensor cu_Out;
-        cuTensor cu_Weight;
-        cuTensor cu_Bias;
+        cuTensor _cuIn;
+        cuTensor _cuOut;
+        cuTensor _cuWeight;
+        cuTensor _cuBias;
 
         public override unsafe void forward(
             float* _Out, float* _In, float* _Weight, float* _Bias, uint B, uint I, uint O) {
 
-            if (cu_In == null) {
-                cu_In = new cuTensor(B * I, requires_grad: true);
-            } else if (cu_In.numel() != B * I) {
-                cu_In.resize(B * I);
+            if (_cuIn == null) {
+                _cuIn = new cuTensor(B * I, requires_grad: true);
+            } else if (_cuIn.numel() != B * I) {
+                _cuIn.resize(B * I);
             }
 
-            if (cu_Out == null) {
-                cu_Out = new cuTensor(B * O, requires_grad: true);
-            } else if (cu_Out.numel() != B * O) {
-                cu_Out.resize(B * O);
+            if (_cuOut == null) {
+                _cuOut = new cuTensor(B * O, requires_grad: true);
+            } else if (_cuOut.numel() != B * O) {
+                _cuOut.resize(B * O);
             }
 
-            if (cu_Weight == null) {
-                cu_Weight = new cuTensor(I * O, requires_grad: true);
-            } else if (cu_Weight.numel() != I * O) {
-                cu_Weight.resize(I * O);
+            if (_cuWeight == null) {
+                _cuWeight = new cuTensor(I * O, requires_grad: true);
+            } else if (_cuWeight.numel() != I * O) {
+                _cuWeight.resize(I * O);
             }
 
-            if (cu_Bias == null) {
-                cu_Bias = new cuTensor(O, requires_grad: true);
-            } else if (cu_Bias.numel() != O) {
-                cu_Bias.resize(O);
+            if (_cuBias == null) {
+                _cuBias = new cuTensor(O, requires_grad: true);
+            } else if (_cuBias.numel() != O) {
+                _cuBias.resize(O);
             }
 
-            IntPtr _d_data_In = cu_In.data;
-            IntPtr _d_data_Out = cu_Out.data;
-            IntPtr _d_data_Weight = cu_Weight.data;
-            IntPtr _d_data_Bias = cu_Bias.data;
+            IntPtr _d_Mem_cuIn = _cuIn.data;
+            IntPtr _d_Mem_cuOut = _cuOut.data;
+            IntPtr _d_Mem_cuWeight = _cuWeight.data;
+            IntPtr _d_Mem_cuBias = _cuBias.data;
 
-            checkCudaErrors(cuMemcpyHtoD_v2(_d_data_Out, _Out, cu_Out.numel() * sizeof(float)));
-            checkCudaErrors(cuMemcpyHtoD_v2(_d_data_In, _In, cu_In.numel() * sizeof(float)));
-            checkCudaErrors(cuMemcpyHtoD_v2(_d_data_Weight, _Weight, cu_Weight.numel() * sizeof(float)));
-            checkCudaErrors(cuMemcpyHtoD_v2(_d_data_Bias, _Bias, cu_Bias.numel() * sizeof(float)));
+            checkCudaErrors(cuMemcpyHtoD_v2(_d_Mem_cuOut, _Out, _cuOut.numel() * sizeof(float)));
+            checkCudaErrors(cuMemcpyHtoD_v2(_d_Mem_cuIn, _In, _cuIn.numel() * sizeof(float)));
+            checkCudaErrors(cuMemcpyHtoD_v2(_d_Mem_cuWeight, _Weight, _cuWeight.numel() * sizeof(float)));
+            checkCudaErrors(cuMemcpyHtoD_v2(_d_Mem_cuBias, _Bias, _cuBias.numel() * sizeof(float)));
 
-            void*[] args = { &_d_data_Out, &_d_data_In, &_d_data_Weight, &_d_data_Bias, &B, &I, &O };
+            void*[] args = { &_d_Mem_cuOut, &_d_Mem_cuIn, &_d_Mem_cuWeight, &_d_Mem_cuBias, &B, &I, &O };
 
             checkCudaErrors(cuLaunchKernel(
                 _matmul_forward_cu,
@@ -210,7 +220,8 @@ namespace nn.dev {
                 args,
                 null));
 
-            checkCudaErrors(cuMemcpyDtoH_v2(_Out, _d_data_Out, cu_Out.numel() * sizeof(float)));
+            checkCudaErrors(cuMemcpyDtoH_v2(_Out, _d_Mem_cuOut, _cuOut.numel() * sizeof(float)));
+
             // checkCudaErrors(cuMemcpyDtoH_v2(_In, _d_data_In, cu_In.numel() * sizeof(float)));
             // checkCudaErrors(cuMemcpyDtoH_v2(_Weight, _d_data_Weight, cu_Weight.numel() * sizeof(float)));
             // checkCudaErrors(cuMemcpyDtoH_v2(_Bias, _d_data_Bias, cu_Bias.numel() * sizeof(float)));

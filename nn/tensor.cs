@@ -43,8 +43,7 @@
 
         const ulong ALIGNMENT = 4096ul;
 
-        uint _available;
-
+        uint _capacity;
         uint _numel;
 
         public Tensor(uint numel, bool requires_grad = true) : base() {
@@ -82,12 +81,10 @@
                 if (h_ua_grad != IntPtr.Zero) grad = (float*)(((ulong)h_ua_grad + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
 
                 _numel = numel;
-                _available = numel;
+                _capacity = numel;
             } catch {
                 data = null;
                 grad = null;
-                _numel = 0;
-                _available = 0;
                 if (h_ua_grad != IntPtr.Zero) free((void*)h_ua_grad);
                 if (h_ua_data != IntPtr.Zero) free((void*)h_ua_data);
                 throw;
@@ -95,6 +92,8 @@
         }
 
         void cpuMemFree() {
+            _numel = 0;
+            _capacity = 0;
             free((void*)Interlocked.Exchange(ref h_ua_data, IntPtr.Zero));
             free((void*)Interlocked.Exchange(ref h_ua_grad, IntPtr.Zero));
         }
@@ -125,7 +124,7 @@
         }
 
         public void resize(uint value) {
-            if (value <= _available) {
+            if (value <= _capacity) {
                 _numel = value;
             } else {
                 throw new NotImplementedException();

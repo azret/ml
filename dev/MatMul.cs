@@ -20,6 +20,8 @@ namespace nn.dev {
 
             Console.WriteLine();
 
+            printf("> Compiling CPU & CUDA kernels...\n");
+
             kernels = new F.MatMul[]
             {
                 new F.MatMul(0),
@@ -34,6 +36,8 @@ namespace nn.dev {
                 new cuMatMulA(512),
                 new cuMatMulA(1024),
             };
+
+            printf("> Done.\n\n");
 
             uint B = 32;
             uint I = 1024;
@@ -180,9 +184,10 @@ namespace nn.dev {
 
                 double elapsed = ((double)millis() - start);
 
-                Console.WriteLine($"kernel #{kernel} forward ({kernels[kernel]}), {elapsed:0.00} ms");
+                Console.WriteLine($"kernel #{kernel} forward\t({kernels[kernel]})\t{elapsed:0.00} ms");
 
                 start = millis();
+
                 for (int i = 0; i < 64; i++) {
                     MatMul.backward(
                         _k_Mem_Out.data,
@@ -200,7 +205,7 @@ namespace nn.dev {
 
                 elapsed = ((double)millis() - start);
 
-                Console.WriteLine($"kernel #{kernel} backward ({kernels[kernel]}), {elapsed:0.00} ms");
+                Console.WriteLine($"kernel #{kernel} backward\t({kernels[kernel]})\t{elapsed:0.00} ms");
             }
 
             checkCudaErrors(cuCtxDestroy_v2(ctx));

@@ -6,26 +6,28 @@
 
 // dumpbin /DISASM:BYTES MatMul.obj > MatMul.asm
 
-void matmul_forward(
+void matmul_forward_kernel(
     float* _Out,       /* [B, O] */
     float* _In,        /* [B, I] */
     float* _Weight,    /* [I, O] */
     float* _Bias,      /* [O] */
+    unsigned int b,
     unsigned int B,
     unsigned int I,
     unsigned int O) {
 
-    for (int b = 0; b < B; b++) {
-        float* x = _In + b * I;
-        float* y = _Out + b * O;
-        for (int o = 0; o < O; o++) {
-            float acc = _Bias ? _Bias[o] : 0;
-            float* w = _Weight + o * I;
-            for (int i = 0; i < I; i++) {
-                acc += w[i] * x[i];
-            }
-            y[o] = (float)acc;
+    float* x = _In      + b * I;
+    float* y = _Out     + b * O;
+
+    for (int o = 0; o < O; o++) {
+        float acc   = _Bias ? _Bias[o] : 0;
+        float* w    = _Weight + o * I;
+
+        for (int i = 0; i < I; i++) {
+            acc += w[i] * x[i];
         }
+
+        y[o] = (float)acc;
     }
 }
 
