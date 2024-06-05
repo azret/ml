@@ -4,20 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-def pretty_logits(logits, max_ = 7):
-    logits0 = logits.view(-1)
-    row = "["
-    cc = len(logits0)
-    n = min(cc, max_)
-    for j in range(n):
-        row += f"{logits0[j].item():.4f}"
-        if j == n - 1:
-            if (n < cc):
-                row += ", ..."
-        else:
-            row += ", "
-    row += "]"
-    return row
+from common import pretty_logits
 
 if __name__ == "__main__":
     print("<bernoulli_>")

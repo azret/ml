@@ -11,6 +11,8 @@
 
     public interface ILayer : ICompute, IDisposable {
         IEnumerable<Tensor> parameters();
+        void eval();
+        void train();
     }
 
     public sealed class Identity : ILayer {
@@ -18,6 +20,8 @@
         }
 
         public IEnumerable<Tensor> parameters() { yield break; }
+        public void eval() { }
+        public void train() { }
 
         public Tensor forward(Tensor input) {
             return input;
@@ -68,6 +72,18 @@
             }
         }
 
+        public void eval() {
+            foreach (ILayer m in Block) {
+                m.eval();
+            }
+        }
+
+        public void train() {
+            foreach (ILayer m in Block) {
+                m.train();
+            }
+        }
+
         public Tensor forward(Tensor input) {
             for (int m = 0; m < Block.Length; m++) {
                 input = Block[m].forward(input);
@@ -94,6 +110,10 @@
         }
 
         public IEnumerable<Tensor> parameters() { yield break; }
+
+        public void eval() { }
+
+        public void train() { }
 
         protected virtual void forward(
             float* _Out,       /* [N] */
@@ -126,7 +146,7 @@
                 }
             }
 
-            _In.from_(input.data, N);
+            _In.fill_(input.data, N);
 
             forward(
                 _Out.data,
@@ -154,6 +174,100 @@
         }
     }
 
+    public unsafe class Dropout : ILayer {
+        IRNG g;
+
+        public readonly double p;
+
+        Tensor _In;
+        Tensor _Out;
+        Tensor _Mask;
+
+        bool? training = null;
+
+        public Dropout(IRNG g, double p = 0.5) {
+            this.p = p;
+            this.g = g;
+        }
+
+        public void Dispose() {
+            if (_Out != null) _Out.Dispose();
+            _Out = null;
+            if (_In != null) _In.Dispose();
+            _In = null;
+            if (_Mask != null) _Mask.Dispose();
+            _Mask = null;
+        }
+
+        public IEnumerable<Tensor> parameters() { yield break; }
+
+        public void train() {
+            training = true;
+        }
+
+        public void eval() {
+            training = false;
+        }
+
+        public Tensor forward(Tensor input) {
+            uint N = input.numel();
+
+            if (_In is null) {
+                _In = new Tensor(N, requires_grad: true);
+            } else {
+                if (_In.numel() != N) {
+                    _In.resize((N));
+                }
+            }
+            if (_Out is null) {
+                _Out = new Tensor(N, requires_grad: true);
+            } else {
+                if (_Out.numel() != N) {
+                    _Out.resize((N));
+                }
+            }
+            if (_Mask is null) {
+                _Mask = new Tensor(N, requires_grad: false);
+            } else {
+                if (_Mask.numel() != N) {
+                    _Mask.resize((N));
+                }
+            }
+
+            _In.fill_(input.data, N);
+
+            F.dropout_forward_cpu(
+                _Out.data,
+                _In.data,
+                _Mask.data,
+                N,
+                p,
+                training,
+                g);
+
+            return _Out;
+        }
+
+        public Tensor backward(Tensor output) {
+            uint N = _In.numel();
+
+            if (output.numel() != N) throw new InvalidOperationException();
+
+            _In.zero_grad();
+
+            F.dropout_backward_cpu(
+                output.data,
+                output.grad,
+                _In.data,
+                _In.grad,
+                 _Mask.data,
+                N,
+                p);
+
+            return _In;
+        }
+    }
+
     public unsafe class Sigmoid : ILayer {
         Tensor _In, _Out;
 
@@ -165,6 +279,8 @@
         }
 
         public IEnumerable<Tensor> parameters() { yield break; }
+        public void eval() { }
+        public void train() { }
 
         protected virtual void forward(
             float* _Out,       /* [N] */
@@ -197,7 +313,7 @@
                 }
             }
 
-            _In.from_(input.data, N);
+            _In.fill_(input.data, N);
 
             forward(
                 _Out.data,
@@ -270,6 +386,9 @@
             if (_Bias != null) yield return _Bias;
         }
 
+        public void eval() { }
+        public void train() { }
+
         public Tensor forward(Tensor input) {
             if (_MatMul == null) throw new ObjectDisposedException(GetType().FullName);
 
@@ -297,7 +416,7 @@
                 }
             }
 
-            _In.from_(input.data, N);
+            _In.fill_(input.data, N);
 
             _MatMul.forward(
                 _Out.data,

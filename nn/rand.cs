@@ -110,65 +110,43 @@
                 }
                 return x;
             }
-
-            public ulong randint64() {
-                return ((ulong)randint32() << 32) | randint32();
-            }
-
-            public float randfloat32() {
-                return (float)randint32() / 0x7FFFFFFF;
-            }
-
-            public double randfloat64() {
-                return (double)randint32() / 0x7FFFFFFF;
-            }
+            public ulong randint64() { return ((ulong)randint32() << 32) | randint32(); }
+            public float randfloat32() { return (float)randint32() / 0x7FFFFFFF; }
+            public double randfloat64() { return (double)randint32() / 0x7FFFFFFF; }
         }
 
-        public static float uniform(IRNG g, float from = 0f, float to = 1f) {
-            return (float)g.randfloat32() * (to - from) + from;
-        }
+        // Uniform Distribution
 
-        public static void uniform_(float[] data, IRNG g, float from = 0f, float to = 1f) {
-            fixed (float* ptr = data) {
-                uniform_(ptr, (uint)data.Length, g, from, to);
-            }
-        }
+        public static float uniform(IRNG g, float from = 0f, float to = 1f) { return (float)g.randfloat32() * (to - from) + from; }
+        public static double uniform(IRNG g, double from = 0f, double to = 1f) { return (double)g.randfloat64() * (to - from) + from; }
 
-        public static void uniform_(float* data, uint numel, IRNG g, float from = 0f, float to = 1f) {
-            for (uint t = 0; t < numel; t++) {
-                data[t] = uniform(g, from , to);
-            }
-        }
+        public static void uniform_(float[] data, IRNG g, float from = 0f, float to = 1f) { fixed (float* ptr = data) { uniform_(ptr, (uint)data.Length, g, from, to); } }
+        public static void uniform_(float* data, uint numel, IRNG g, float from = 0f, float to = 1f) { for (uint t = 0; t < numel; t++) { data[t] = uniform(g, from , to); } }
 
-        public static void normal_(float[] data, IRNG g, float mean = 0f, float std = 1f) {
-            fixed (float* ptr = data) {
-                normal_(ptr, (uint)data.Length, g, mean, std);
-            }
-        }
+        // Normal Distribution
 
+        public static void normal_(float[] data, IRNG g, float mean = 0f, float std = 1f) { fixed (float* ptr = data) { normal_(ptr, (uint)data.Length, g, mean, std); } }
         public static void normal_(float* data, uint numel, IRNG g, float mean = 0f, float std = 1f) {
-            // Box-Muller transform
             // This implementation follows PyTorch so that we are numerically identical when running verification tests.
-            // See https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/cpu/DistributionTemplates.h
-            // See https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/core/DistributionsHelper.h
             const double EPSILONE = 1e-12;
             if (numel >= 16) {
-                for (uint t = 0; t < numel; t++) {
-                    data[t] = (float)g.randfloat32();
-                }
+                // for (uint t = 0; t < numel; t++) {
+                //     data[t] = uniform(g, 0f, 1f);
+                // }
+                uniform_(data, numel, g, 0f, 1f);
                 for (uint i = 0; i < numel - 15; i += 16) {
                     _fill_16(data + i, mean, std);
                 }
                 if (numel % 16 != 0) {
                     // recompute the last 16 values
                     data = data + numel - 16;
-                    for (uint i = 0; i < 16; i++) {
-                        data[i] = (float)g.randfloat32();
-                    }
+                    // for (uint i = 0; i < 16; i++) {
+                    //     data[i] = uniform(g, 0f, 1f);
+                    // }
+                    uniform_(data, 16, g, 0f, 1f);
                     _fill_16(data, mean, std);
                 }
                 void _fill_16(float* data, float mean, float std) {
-                    const double EPSILONE = 1e-12;
                     for (uint t = 0; t < 8; t++) {
                         var u1 = 1 - data[t];
                         var u2 = data[t + 8];
@@ -187,51 +165,14 @@
                         continue;
                     }
                     // for numel < 16 we draw a double (float64)
-                    var u1 = g.randfloat64();
-                    var u2 = g.randfloat64();
+                    var u1 = uniform(g, 0d, 1d);
+                    var u2 = uniform(g, 0d, 1d);
                     var radius = Math.Sqrt(-2 * Math.Log(1 - u2 + EPSILONE));
                     var theta = 2.0 * Math.PI * u1;
                     next_double_normal_sample = radius * Math.Sin(theta);
                     data[t] = (float)(radius * Math.Cos(theta) * std + mean);
                 }
             }
-        }
-
-        public static double calculate_gain(string nonlinearity, double? a = null) {
-            switch (nonlinearity) {
-                case "linear":
-                case "conv1d":
-                case "conv2d":
-                case "conv3d":
-                case "conv_transpose1d":
-                case "conv_transpose2d":
-                case "conv_transpose3d":
-                case "sigmoid":
-                    return 1d;
-                case "tanh":
-                    return 5.0 / 3;
-                case "relu":
-                    return Math.Sqrt(2.0);
-                case "leaky_relu":
-                    double negative_slope = a.HasValue
-                        ? a.Value
-                        : 0.01;
-                    return Math.Sqrt(2.0 / (1 + Math.Pow(negative_slope, 2)));
-                case "selu":
-                    return 3.0 / 4;
-                default:
-                    throw new NotSupportedException($"Unsupported nonlinearity {nonlinearity}");
-            }
-        }
-
-        public static void kaiming_uniform_(float* data, uint numel, IRNG g, uint fan_in, float a, string nonlinearity = "leaky_relu") {
-            var gain = calculate_gain(nonlinearity, a);
-            var std = gain / Math.Sqrt(fan_in);
-            var bound = Math.Sqrt(3.0) * std;
-            uniform_(data,
-                numel,
-                g,
-                -(float)bound, (float)bound);
         }
     }
 }

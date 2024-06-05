@@ -83,6 +83,71 @@
             return acc;
         }
 
+        public static void dropout_forward_cpu(
+            float* _Out,
+            float* _In,
+            float* _Mask,
+            uint N,
+            double p,
+            bool? training,
+            IRNG g) {
+
+            if (p < 0 || p > 1) throw new ArgumentOutOfRangeException(nameof(p), p, "dropout probability has to be between 0 and 1");
+
+            if ((training.HasValue
+                        && !training.Value) || p == 0 || N == 0) {
+                // pass-through
+                for (int i = 0; i < N; i++) {
+                    _Out[i] = _In[i];
+                    _Mask[i] = 1f;
+                }
+                return;
+            }
+
+            if (p == 1) {
+                // drop-all
+                for (int i = 0; i < N; i++) {
+                    _Out[i] = 0f;
+                    _Mask[i] = 0f;
+                }
+                return;
+            }
+
+            double scale = p == 1d ? 0d : (float)(1d / (1d - p));
+
+            // Inline MCG(1132489760, 2^31 -1) [L'Ecuyer99]
+            ulong state_ = g.randint32() % 0x000000007FFFFFFF;
+            for (int i = 0; i < N; i++) {
+                double x = (double)(state_ % 0x000000007FFFFFFF) / 0x7FFFFFFF;
+                unchecked {
+                    state_ = (1132489760 * state_) % 0x000000007FFFFFFF;
+                }
+                if (x < 1d - p) {
+                    _Mask[i] = 1f;
+                    _Out[i] = _In[i] * (float)scale;
+                } else {
+                    _Mask[i] = 0f;
+                    _Out[i] = 0f;
+                }
+            }
+        }
+
+        public static unsafe void dropout_backward_cpu(
+            float* _Out,       /* [N] */
+            float* d_Out,       /* [N] */
+            float* _In,        /* [N] */
+            float* d_In,        /* [N] */
+            float* _Mask,        /* [N] */
+            uint N,
+            double p) {
+
+            double scale = p == 1d ? 0d : (float)(1d / (1d - p));
+
+            for (int n = 0; n < N; n++) {
+                d_In[n] = d_Out[n] * _Mask[n] * (float)scale;
+            }
+        }
+
         public static unsafe void relu_forward_cpu(
             float* _Out,       /* [N] */
             float* _In,        /* [N] */

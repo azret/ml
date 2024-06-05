@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from common import pretty_logits
+
 # def kaiming_uniform_(
 #     tensor: torch.Tensor,
 #     a: float = 0,
@@ -55,21 +57,6 @@ class Net(nn.Module):
     #         torch.nn.init.uniform_(linear.bias, -bound, bound)
     #         print(f"bias: {pretty_logits(linear.bias)}")
     #         print(torch.randint(0, 0xFFFFFFFF, [1]).item())
-
-def pretty_logits(logits, max_ = 7):
-    logits0 = logits.view(-1)
-    row = "["
-    cc = len(logits0)
-    n = min(cc, max_)
-    for j in range(n):
-        row += f"{logits0[j].item():.4f}"
-        if j == n - 1:
-            if (n < cc):
-                row += ", ..."
-        else:
-            row += ", "
-    row += "]"
-    return row
 
 if __name__ == "__main__":
     import argparse

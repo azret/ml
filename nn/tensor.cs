@@ -189,12 +189,6 @@
             }
         }
 
-        public void fill_(float fill) {
-            for (uint t = 0; t < numel(); t++) {
-                data[t] = fill;
-            }
-        }
-
         public void linspace_(float from, float to, bool endpoint = true) {
             if (endpoint) {
                 if (numel() == 1) {
@@ -220,11 +214,17 @@
             }
         }
 
-        public void from_(float* src, uint numel) {
+        public void fill_(float* src, uint numel) {
             kernel32.CopyMemory(
                 data,
                 src,
                 (UIntPtr)((ulong)numel * sizeof(float)));
+        }
+
+        public void fill_(float fill) {
+            for (uint t = 0; t < numel(); t++) {
+                data[t] = fill;
+            }
         }
 
         public void zero_grad() {

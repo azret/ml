@@ -31,12 +31,12 @@ jobs:
       - name: SETUP MSBuild.exe
         uses: microsoft/setup-msbuild@v2
 
-      - name: BUILD
+      - name: Build
         run: dotnet build
 
-      - name: TEST
+      - name: Test
         run: dotnet test
 
-      - name: IRIS
-        run: dotnet run --project tests/iris.csproj
+      - name: Test
+        run: dotnet run --project tests/tests.csproj
 
