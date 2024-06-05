@@ -3,7 +3,6 @@
     using System.Collections;
     using System.Collections.Generic;
     using System.Diagnostics;
-    using nn.CPU;
 
     public interface ICompute {
         Tensor forward(Tensor input);
@@ -368,6 +367,15 @@
             _Bias = bias
                 ? new Tensor(O, requires_grad: true)
                 : null;
+            if (System.Runtime.Intrinsics.X86.Avx2.IsSupported) {
+                _MatMul = new nn.CPU.MatMulAVX2();
+            }
+            else if (System.Runtime.Intrinsics.X86.Avx.IsSupported) {
+                _MatMul = new nn.CPU.MatMulAVX();
+            }
+            else {
+                _MatMul = new nn.CPU.MatMulC();
+            }
         }
 
         public void Dispose() {
