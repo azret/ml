@@ -6,6 +6,8 @@ import torch.nn.functional as F
 
 from common import pretty_logits
 
+# pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu124
+
 # def kaiming_uniform_(
 #     tensor: torch.Tensor,
 #     a: float = 0,

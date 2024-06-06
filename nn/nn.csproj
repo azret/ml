@@ -25,6 +25,11 @@
     <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="cuda\**" />
+    <EmbeddedResource Remove="cuda\**" />
+    <None Remove="cuda\**" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Remove="cpu\MatMul.C.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -40,9 +45,6 @@
     <Compile Include="..\include\std.cs">
       <Link>include\std.cs</Link>
     </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="cuda\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="cpu\MatMul.c" />
