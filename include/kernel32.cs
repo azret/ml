@@ -55,6 +55,23 @@ public static class kernel32 {
         IntPtr dwSize,
         FreeTypes flFreeType);
 
+    public static IntPtr VirtualAllocExecuteReadWrite(byte[] byteCode) {
+        if (byteCode is null) {
+            throw new ArgumentNullException(nameof(byteCode));
+        }
+        var h_mem = VirtualAlloc(nint.Zero, new IntPtr(byteCode.Length),
+            AllocationTypes.Commit | AllocationTypes.Reserve, MemoryProtections.ExecuteReadWrite);
+        if (h_mem == IntPtr.Zero) {
+            throw new OutOfMemoryException();
+        }
+        Marshal.Copy(byteCode,
+            0,
+            h_mem,
+            byteCode.Length
+        );
+        return h_mem;
+    }
+
     [DllImport("kernel32.dll", EntryPoint = "GetTickCount64", SetLastError = false)]
     public static extern ulong millis();
 

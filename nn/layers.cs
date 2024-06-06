@@ -16,31 +16,29 @@
     }
 
     public sealed class Identity : ILayer {
-        public void Dispose() {
-        }
-
+        public void Dispose() { }
         public IEnumerable<Tensor> parameters() { yield break; }
         public void eval() { }
         public void train() { }
-
-        public Tensor forward(Tensor input) {
-            return input;
-        }
-
-        public Tensor backward(Tensor output) {
-            return output;
-        }
+        public Tensor forward(Tensor input) { return input; }
+        public Tensor backward(Tensor output) { return output; }
     }
 
     public unsafe sealed class Sequential : ILayer, IEnumerable<ILayer> {
-        ILayer[] Block = Array.Empty<ILayer>();
+        ILayer[] _Mx = Array.Empty<ILayer>();
 
         public IEnumerator<ILayer> GetEnumerator() {
-            return ((IEnumerable<ILayer>)Block).GetEnumerator();
+            return ((IEnumerable<ILayer>)_Mx).GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator() {
-            return Block.GetEnumerator();
+            return _Mx.GetEnumerator();
+        }
+
+        public ILayer this[int index] {
+            get {
+                return _Mx[index];
+            }
         }
 
         public Sequential(params ILayer[] modules) {
@@ -50,22 +48,22 @@
         }
 
         public void add(ILayer m) {
-            var M = new ILayer[Block.Length + 1];
-            Array.Copy(Block, M, Block.Length);
-            M[Block.Length] = m;
-            Block = M;
+            var Mx = new ILayer[_Mx.Length + 1];
+            Array.Copy(_Mx, Mx, _Mx.Length);
+            Mx[_Mx.Length] = m;
+            _Mx = Mx;
         }
 
         public void Dispose() {
-            var M = Block;
-            Block = null;
+            var M = _Mx;
+            _Mx = null;
             for (int m = M.Length - 1; m >= 0; m--) {
                 M[m].Dispose();
             }
         }
 
         public IEnumerable<Tensor> parameters() {
-            foreach (ILayer m in Block) {
+            foreach (ILayer m in _Mx) {
                 foreach (var p in m.parameters()) {
                     yield return p;
                 }
@@ -73,27 +71,27 @@
         }
 
         public void eval() {
-            foreach (ILayer m in Block) {
+            foreach (ILayer m in _Mx) {
                 m.eval();
             }
         }
 
         public void train() {
-            foreach (ILayer m in Block) {
+            foreach (ILayer m in _Mx) {
                 m.train();
             }
         }
 
         public Tensor forward(Tensor input) {
-            for (int m = 0; m < Block.Length; m++) {
-                input = Block[m].forward(input);
+            for (int m = 0; m < _Mx.Length; m++) {
+                input = _Mx[m].forward(input);
             }
             return input;
         }
 
         public Tensor backward(Tensor output) {
-            for (int m = Block.Length - 1; m >= 0; m--) {
-                output = Block[m].backward(output);
+            for (int m = _Mx.Length - 1; m >= 0; m--) {
+                output = _Mx[m].backward(output);
             }
             return output;
         }
@@ -367,15 +365,16 @@
             _Bias = bias
                 ? new Tensor(O, requires_grad: true)
                 : null;
-            if (System.Runtime.Intrinsics.X86.Avx2.IsSupported) {
-                _MatMul = new nn.CPU.MatMulAVX2();
-            }
-            else if (System.Runtime.Intrinsics.X86.Avx.IsSupported) {
-                _MatMul = new nn.CPU.MatMulAVX();
-            }
-            else {
-                _MatMul = new nn.CPU.MatMulC();
-            }
+            // if (System.Runtime.Intrinsics.X86.Avx2.IsSupported) {
+            //     _MatMul = new nn.CPU.MatMulAVX2();
+            // }
+            // else if (System.Runtime.Intrinsics.X86.Avx.IsSupported) {
+            //     _MatMul = new nn.CPU.MatMulAVX();
+            // }
+            // else {
+            //     _MatMul = new nn.CPU.MatMulC();
+            // }
+            _MatMul = new nn.F.MatMul(-1);
         }
 
         public void Dispose() {

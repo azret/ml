@@ -7,9 +7,6 @@ using static cuda;
 
 namespace nn.dev {
     static unsafe partial class MatMul_ {
-
-        static F.MatMul[] kernels;
-
         static unsafe int Main() {
             checkCudaErrors(cuInit());
             checkCudaErrors(cuDeviceGet(out var dev, 0));
@@ -22,13 +19,14 @@ namespace nn.dev {
 
             printf("> Compiling CPU & CUDA kernels...\n");
 
-            kernels = new F.MatMul[]
+            F.MatMul[] kernels;
+
+            kernels = new []
             {
                 new F.MatMul(0),
                 new F.MatMul(-1),
-                new MatMulC(),
-                new MatMulAVX(),
-                new MatMulAVX2(),
+                new MatMulAVX2(0),
+                new MatMulAVX2(-1),
                 new cuMatMulA(32),
                 new cuMatMulA(64),
                 new cuMatMulA(128),
@@ -39,7 +37,7 @@ namespace nn.dev {
 
             printf("> Done.\n\n");
 
-            uint B = 32;
+            uint B = 64;
             uint I = 1024;
             uint O = I * 4;
 
@@ -59,7 +57,7 @@ namespace nn.dev {
             for (int i = 0; i < _h_Mem_Out.numel(); i++) { _h_Mem_Out.data[i] = urandf(&seed) * 2.0f - 1.0f; }
             for (int i = 0; i < _h_Mem_Out.numel(); i++) { _h_Mem_Out.grad[i] = urandf(&seed) * 2.0f - 1.0f; }
 
-            F.matmul_forward_cpu(
+            F.matmul_forward_naive(
                 _h_Mem_Out.data,
                 _h_Mem_In.data,
                 _h_Mem_Weight.data,
@@ -69,7 +67,7 @@ namespace nn.dev {
                 O,
                 0);
 
-            F.matmul_backward_cpu(
+            F.matmul_backward_naive(
                 _h_Mem_Out.data,
                 _h_Mem_Out.grad,
                 _h_Mem_In.data,
@@ -134,7 +132,7 @@ namespace nn.dev {
                     O);
 
                 ok &= validate_results(_k_Mem_Out.grad, _h_Mem_Out.grad, _k_Mem_Out.numel(), "\nout.grad");
-                ok &= validate_results(_k_Mem_In.grad, _h_Mem_In.grad, _k_Mem_In.numel(), "\nin.grad");
+                ok &= validate_results(_k_Mem_In.grad, _h_Mem_In.grad, _k_Mem_In.numel(), "\nin.grad", 0.001f);
                 ok &= validate_results(_k_Mem_Weight.grad, _h_Mem_Weight.grad, _k_Mem_Weight.numel(), "\nweight.grad");
                 ok &= validate_results(_k_Mem_Bias.grad, _h_Mem_Bias.grad, _k_Mem_Bias.numel(), "\nbias.grad");
 
@@ -218,7 +216,10 @@ namespace nn.dev {
             return 0;
         }
 
-        public static unsafe bool validate_results(float* d_Mem, float* h_Mem, uint N, string name = null, bool bPrint = true) {
+        public static unsafe bool validate_results(float* d_Mem, float* h_Mem, uint N, 
+            string name = null,
+            float epsilone = 1e-4f,
+            bool bPrint = true) {
             if (!string.IsNullOrWhiteSpace(name) && bPrint) {
                 Console.WriteLine($"{name}:");
             }
@@ -226,7 +227,7 @@ namespace nn.dev {
             int faults = 0;
             int prints = 0;
             for (int i = 0; i < N; ++i) {
-                if (Math.Abs(d_Mem[i] - h_Mem[i]) > 1e-4f) {
+                if (Math.Abs(d_Mem[i] - h_Mem[i]) > epsilone) {
                     ok = false;
                     if (faults < 7 && bPrint) {
                         Console.ForegroundColor = ConsoleColor.Red;

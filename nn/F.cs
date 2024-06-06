@@ -2,6 +2,7 @@
     using System;
     using System.Runtime.ConstrainedExecution;
     using System.Runtime.InteropServices;
+    using System.Threading;
     using System.Threading.Tasks;
 
     public static unsafe partial class F {
@@ -209,29 +210,7 @@
             }
         }
 
-        static unsafe void matmul_forward_kernel_cpu(
-            float* _Out,       /* [B, O] */
-            float* _In,        /* [B, I] */
-            float* _Weight,    /* [I, O] */
-            float* _Bias,      /* [O] */
-            uint b,
-            uint I,
-            uint O) {
-
-            float* x = _In + b * I;
-            float* y = _Out + b * O;
-
-            for (int o = 0; o < O; o++) {
-                float acc = _Bias != null ? _Bias[o] : 0;
-                float* w = _Weight + o * I;
-                for (int i = 0; i < I; i++) {
-                    acc += w[i] * x[i];
-                }
-                y[o] = (float)acc;
-            }
-        }
-
-        public static unsafe void matmul_forward_cpu(
+        public static unsafe void matmul_forward_naive(
             float* _Out,       /* [B, O] */
             float* _In,        /* [B, I] */
             float* _Weight,    /* [I, O] */
@@ -241,110 +220,93 @@
             uint O,
             int maxDegreeOfParallelism) {
 
-            if (maxDegreeOfParallelism != 0) {
-                Parallel.For(0, B, (b) => {
-                    matmul_forward_kernel_cpu(
-                        _Out,
-                        _In,
-                        _Weight,
-                        _Bias,
-                        (uint)b,
-                        I,
-                        O);
+            if (maxDegreeOfParallelism == -1 || maxDegreeOfParallelism > 0) {
+                Parallel.For(0, B * O, (bo) => {
+                    uint b = (uint)bo / O;
+                    uint o = (uint)bo % O;
+                    if (b < B && o < O) {
+                        float* x = _In + b * I;
+                        float* y = _Out + b * O;
+                        float acc = _Bias != null ? _Bias[o] : 0;
+                        float* w = _Weight + o * I;
+                        for (int i = 0; i < I; i++) {
+                            acc += w[i] * x[i];
+                        }
+                        y[o] = (float)acc;
+                    }
                 });
             } else {
-                for (uint b = 0; b < B; b++) {
-                    matmul_forward_kernel_cpu(
-                        _Out,
-                        _In,
-                        _Weight,
-                        _Bias,
-                        b,
-                        I,
-                        O);
+                for (uint bo = 0; bo < B * O; bo++) {
+                    uint b = bo / O;
+                    uint o = bo % O;
+                    if (b < B && o < O) {
+                        float* x = _In + b * I;
+                        float* y = _Out + b * O;
+                        float acc = _Bias != null ? _Bias[o] : 0;
+                        float* w = _Weight + o * I;
+                        for (int i = 0; i < I; i++) {
+                            acc += w[i] * x[i];
+                        }
+                        y[o] = (float)acc;
+                    }
                 }
             }
         }
 
-        public static unsafe void matmul_backward(
-            float* d_In,
-            float* d_Weight,
-            float* d_Bias,
-            float* d_Out,
-            float* _In,
-            float* _Weight,
-            uint B,
-            uint I,
-            uint O) {
-
-            Parallel.For(0, B, (b) => {
-                float* dout_bt = d_Out + b * O;
-                float* dinp_bt = d_In + b * I;
-
-                for (int o = 0; o < O; o++) {
-                    float* wrow = _Weight + o * I;
-                    float d = dout_bt[o];
-                    for (int i = 0; i < I; i++) {
-                        dinp_bt[i] += wrow[i] * d;
-                    }
-                }
-            });
-
-            Parallel.For(0, O, (o) => {
-                for (int b = 0; b < B; b++) {
-                    float* dout_bt = d_Out + b * O;
-                    float* inp_bt = _In + b * I;
-                    float* dwrow = d_Weight + o * I;
-                    float d = dout_bt[o];
-                    if (d_Bias != null) { d_Bias[o] += d; }
-                    for (int i = 0; i < I; i++) {
-                        dwrow[i] += inp_bt[i] * d;
-                    }
-                }
-            });
-        }
-
-        public static void matmul_backward_cpu(
+        public static void matmul_backward_naive(
             float* _Out,       /* [B, O] */
-            float* d_Out,       /* [B, O] */
+            float* _δ_Out,       /* [B, O] */
             float* _In,        /* [B, I] */
-            float* d_In,        /* [B, I] */
+            float* _δ_In,        /* [B, I] */
             float* _Weight,    /* [I, O] */
-            float* d_Weight,    /* [I, O] */
+            float* _δ_Weight,    /* [I, O] */
             float* _Bias,      /* [O] */
-            float* d_Bias,      /* [O] */
+            float* _δ_Bias,      /* [O] */
             uint B,
             uint I,
             uint O,
             int maxDegreeOfParallelism) {
 
-            if (maxDegreeOfParallelism != 0) {
-
-                matmul_backward(
-                    d_In,
-                    d_Weight,
-                    d_Bias,
-                    d_Out,
-                    _In,
-                    _Weight,
-                    B,
-                    I,
-                    O);
-
-            } else {
-                for (uint b = 0; b < B; b++) {
-                    float* p_In = _In + b * I;
-                    float* p_d_In = d_In + b * I;
-                    for (int o = 0; o < O; o++) {
-                        float grad = d_Out[b * O + o];
-                        float* p_Weight = _Weight + o * I;
-                        float* p_d_Weight = d_Weight + o * I;
+            if (maxDegreeOfParallelism == -1 || maxDegreeOfParallelism > 0) {
+                Parallel.For(0, B, (b) => {
+                    for (uint o = 0; o < O; o++) {
+                        float* δ_In_b = _δ_In + b * I;
+                        float* _Weight_o = _Weight + o * I;
+                        float δ = _δ_Out[b * O + o];
                         for (int i = 0; i < I; i++) {
-                            p_d_In[i] += p_Weight[i] * grad;
-                            p_d_Weight[i] += p_In[i] * grad;
+                            δ_In_b[i] += _Weight_o[i] * δ;
                         }
-                        if (d_Bias != null) {
-                            d_Bias[o] += grad;
+                    }
+                });
+                Parallel.For(0, O, (o) => {
+                    for (uint b = 0; b < B; b++) {
+                        float* _In_b = _In + b * I;
+                        float* δ_Weight_o = _δ_Weight + o * I;
+                        float δ = _δ_Out[b * O + o];
+                        for (int i = 0; i < I; i++) {
+                            δ_Weight_o[i] += _In_b[i] * δ;
+                        }
+                        if (_δ_Bias != null) {
+                            _δ_Bias[o] += δ;
+                        }
+                    }
+                });
+            } else {
+                for (uint bo = 0; bo < B * O; bo++) {
+                    uint b = bo / O;
+                    uint o = bo % O;
+                    if (b < B && o < O) {
+                        float* _In_b = _In + b * I;
+                        float* δ_In_b = _δ_In + b * I;
+                        float* _Weight_o = _Weight + o * I;
+                        float* δ_Weight_o = _δ_Weight + o * I;
+                        float δ = _δ_Out[b * O + o];
+                        for (int i = 0; i < I; i++) {
+                            δ_In_b[i] += _Weight_o[i] * δ;
+                            δ_Weight_o[i] += _In_b[i] * δ;
+                        }
+                        if (_δ_Bias != null) {
+                            _δ_Bias[o] += δ;
                         }
                     }
                 }
@@ -352,6 +314,20 @@
         }
 
         public unsafe class MatMul : Kernel {
+            public unsafe struct _MatMul {
+                public float* _Out;       /* [B, O] */
+                public float* d_Out;       /* [B, O] */
+                public float* _In;        /* [B, I] */
+                public float* d_In;        /* [B, I] */
+                public float* _Weight;    /* [I, O] */
+                public float* d_Weight;    /* [I, O] */
+                public float* _Bias;      /* [O] */
+                public float* d_Bias;      /* [O] */
+                public uint B;
+                public uint I;
+                public uint O;
+            };
+
             protected readonly int _maxDegreeOfParallelism;
 
             public MatMul(int maxDegreeOfParallelism) {
@@ -395,7 +371,7 @@
                 uint I,
                 uint O) {
 
-                F.matmul_forward_cpu(
+                F.matmul_forward_naive(
                     _Out,
                     _In,
                     _Weight,
@@ -419,7 +395,7 @@
                 uint I,
                 uint O) {
 
-                F.matmul_backward_cpu(
+                F.matmul_backward_naive(
                     _Out,
                     d_Out,
                     _In,

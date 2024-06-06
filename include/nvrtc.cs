@@ -24,6 +24,8 @@ public static class nvrtc {
         try {
             string[] options = new string[]
             {
+                "--use_fast_math",
+                "--dopt=on"
                 // "--include-path=C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\include",
                 // "--include-path=C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt"
             };

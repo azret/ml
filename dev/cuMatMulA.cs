@@ -100,7 +100,7 @@ namespace nn.dev {
     }
 
     public class cuMatMulA : F.MatMul {
-        static string CU = @"
+        static string MATMUL_FORWARD_CU = @"
              extern ""C"" __global__  void matmul_forward_cu(
                  float* _Out,       /* [B, O] */
                  float* _In,        /* [B, I] */
@@ -130,7 +130,82 @@ namespace nn.dev {
 
             }";
 
+        static string MATMUL_BACKWARD_CU = @"
+
+        extern ""C"" __global__  void matmul_backward_cu_part_1(
+            float* d_In,
+            float* d_Out,
+            float* _Weight,
+            int B,
+            int I,
+            int O) {
+
+                int bo = blockIdx.x * blockDim.x + threadIdx.x;
+
+                int b = bo / O;
+                int o = bo % O;
+
+                if (b < B && o < O) {
+
+                    float* dout_bt = d_Out + b * O;
+                    float* dinp_bt = d_In + b * I;
+
+                    //for (int o = 0; o < O; o++) {
+
+                        float* wrow = _Weight + o * I;
+                        float d = dout_bt[o];
+                        for (int i = 0; i < I; i++) {
+                            // dinp_bt[i] += wrow[i] * d;
+                            atomicAdd(&dinp_bt[i], wrow[i] * d);
+                        }
+
+                    //}
+
+                }
+
+            }
+
+        extern ""C"" __global__  void matmul_backward_cu_part_2(
+            float* d_Out,
+            float* d_Weight,
+            float* d_Bias,
+            float* _In,
+            int B,
+            int I,
+            int O) {
+
+                int bo = blockIdx.x * blockDim.x + threadIdx.x;
+
+                int b = bo / O;
+                int o = bo % O;
+
+                if (b < B && o < O) {
+
+                    // for (int o = 0; o < O; o++) {
+
+                        float* dout_bt = d_Out + b * O;
+                        float* inp_bt = _In + b * I;
+                        float* dwrow = d_Weight + o * I;
+                        float d = dout_bt[o];
+                        if (d_Bias) {
+                            // d_Bias[o] += d;
+                            atomicAdd(&d_Bias[o], d);
+                        }
+                        for (int i = 0; i < I; i++) {
+                            // dwrow[i] += inp_bt[i] * d;
+                            atomicAdd(&dwrow[i], inp_bt[i] * d);
+                        }
+
+                    // }
+
+                }
+
+            }
+    ";
+
         IntPtr _matmul_forward_cu;
+        IntPtr _matmul_backward_cu_part_1;
+        IntPtr _matmul_backward_cu_part_2;
 
         uint block_size;
 
@@ -151,12 +226,27 @@ namespace nn.dev {
                 default:
                     throw new ArgumentOutOfRangeException(nameof(block_size));
             }
-            byte[] ptx = nvrtcCompileFromSourceCode(CU, "matmul_forward_cu");
+
+            byte[] ptx = nvrtcCompileFromSourceCode(MATMUL_FORWARD_CU, "MATMUL_FORWARD_CU");
             checkCudaErrors(cuModuleLoadData(out var cuModule, ptx));
+
             checkCudaErrors(cuModuleGetFunction(
                 out _matmul_forward_cu,
                 cuModule,
                 "matmul_forward_cu"));
+
+            ptx = nvrtcCompileFromSourceCode(MATMUL_BACKWARD_CU, "MATMUL_BACKWARD_CU");
+            checkCudaErrors(cuModuleLoadData(out cuModule, ptx));
+
+            checkCudaErrors(cuModuleGetFunction(
+                out _matmul_backward_cu_part_1,
+                cuModule,
+                "matmul_backward_cu_part_1"));
+
+            checkCudaErrors(cuModuleGetFunction(
+                out _matmul_backward_cu_part_2,
+                cuModule,
+                "matmul_backward_cu_part_2"));
         }
 
         protected override void Dispose(bool disposing) {
@@ -171,6 +261,94 @@ namespace nn.dev {
         cuTensor _cuOut;
         cuTensor _cuWeight;
         cuTensor _cuBias;
+
+        public override unsafe void backward(
+            float* _Out,
+            float* d_Out,
+            float* _In,
+            float* d_In,
+            float* _Weight,
+            float* d_Weight,
+            float* _Bias,
+            float* d_Bias,
+            uint B,
+            uint I,
+            uint O) {
+
+            // =======================
+
+            IntPtr _d_Mem_cu_d_In = _cuIn.grad;
+            IntPtr _d_Mem_cu_d_Out = _cuOut.grad;
+            IntPtr _d_Mem_cuWeight = _cuWeight.data;
+
+            checkCudaErrors(cuMemcpyHtoD_v2(_d_Mem_cu_d_Out, d_Out, _cuOut.numel() * sizeof(float)));
+            checkCudaErrors(cuMemcpyHtoD_v2(_d_Mem_cu_d_In, d_In, _cuIn.numel() * sizeof(float)));
+            checkCudaErrors(cuMemcpyHtoD_v2(_d_Mem_cuWeight, _Weight, _cuWeight.numel() * sizeof(float)));
+
+            void*[] args1 = { &_d_Mem_cu_d_In, &_d_Mem_cu_d_Out, &_d_Mem_cuWeight, &B, &I, &O };
+
+            // for (int b = 0; b < B; b++) {
+            //     float* dout_bt = d_Out + b * O;
+            //     float* dinp_bt = d_In + b * I;
+            // 
+            //     for (int o = 0; o < O; o++) {
+            //         float* wrow = _Weight + o * I;
+            //         float d = dout_bt[o];
+            //         for (int i = 0; i < I; i++) {
+            //             dinp_bt[i] += wrow[i] * d;
+            //         }
+            //     }
+            // }
+
+            checkCudaErrors(cuLaunchKernel(
+                _matmul_backward_cu_part_1,
+                CEIL_DIV(B * O, block_size), 1, 1,
+                block_size, 1, 1,
+                0,
+                IntPtr.Zero,
+                args1,
+                null));
+
+            checkCudaErrors(cuMemcpyDtoH_v2(d_In, _d_Mem_cu_d_In, _cuIn.numel() * sizeof(float)));
+
+            // =======================
+
+            // for (int b = 0; b < B; b++) {
+            //     for (int o = 0; o < O; o++) {
+            //         float* dout_bt = d_Out + b * O;
+            //         float* inp_bt = _In + b * I;
+            //         float* dwrow = d_Weight + o * I;
+            //         float d = dout_bt[o];
+            //         if (d_Bias != null) { d_Bias[o] += d; }
+            //         for (int i = 0; i < I; i++) {
+            //             dwrow[i] += inp_bt[i] * d;
+            //         }
+            //     }
+            // }
+
+            IntPtr _d_Mem_cu_In = _cuIn.data;
+            IntPtr _d_Mem_cu_d_Weight = _cuWeight.grad;
+            IntPtr _d_Mem_cu_d_Bias = _cuBias.grad;
+
+            checkCudaErrors(cuMemcpyHtoD_v2(_d_Mem_cu_In, _In, _cuIn.numel() * sizeof(float)));
+            checkCudaErrors(cuMemcpyHtoD_v2(_d_Mem_cu_d_Weight, d_Weight, _cuWeight.numel() * sizeof(float)));
+            checkCudaErrors(cuMemcpyHtoD_v2(_d_Mem_cu_d_Bias, d_Bias, _cuBias.numel() * sizeof(float)));
+
+            void*[] args2 = { &_d_Mem_cu_d_Out, &_d_Mem_cu_d_Weight, &_d_Mem_cu_d_Bias, &_d_Mem_cu_In, &B, &I, &O };
+
+            checkCudaErrors(cuLaunchKernel(
+                _matmul_backward_cu_part_2,
+                CEIL_DIV(B * O, block_size), 1, 1,
+                block_size, 1, 1,
+                0,
+                IntPtr.Zero,
+                args2,
+                null));
+
+            checkCudaErrors(cuMemcpyDtoH_v2(d_Weight, _d_Mem_cu_d_Weight, _cuWeight.numel() * sizeof(float)));
+            checkCudaErrors(cuMemcpyDtoH_v2(d_Bias, _d_Mem_cu_d_Bias, _cuBias.numel() * sizeof(float)));
+
+        }
 
         public override unsafe void forward(
             float* _Out, float* _In, float* _Weight, float* _Bias, uint B, uint I, uint O) {
