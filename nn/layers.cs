@@ -352,40 +352,49 @@
         public readonly Tensor _Weight; /* [I, O] */
         public readonly Tensor _Bias;   /* [O] */
 
-        public Linear(int in_features, int out_features, bool bias = true) {
-            if (in_features <= 0 || in_features >= short.MaxValue / 2) {
-                throw new ArgumentOutOfRangeException(nameof(in_features));
+        public Linear(
+            int I,
+            int O,
+            bool bias = true,
+            int maxDegreeOfParallelism = -1,
+            bool naive = false) {
+
+            if (I <= 0 || I >= short.MaxValue / 2) {
+                throw new ArgumentOutOfRangeException(nameof(I));
             }
-            if (out_features <= 0 || out_features >= short.MaxValue / 2) {
-                throw new ArgumentOutOfRangeException(nameof(out_features));
+            if (O <= 0 || O >= short.MaxValue / 2) {
+                throw new ArgumentOutOfRangeException(nameof(O));
             }
-            I = (uint)in_features;
-            O = (uint)out_features;
-            _Weight = new Tensor(O * I, requires_grad: true);
+
+            this.I = (uint)I;
+            this.O = (uint)O;
+
+            _Weight = new Tensor(this.O * this.I, requires_grad: true);
             _Bias = bias
-                ? new Tensor(O, requires_grad: true)
+                ? new Tensor(this.O, requires_grad: true)
                 : null;
-            // if (System.Runtime.Intrinsics.X86.Avx2.IsSupported) {
-            //     _MatMul = new nn.CPU.MatMulAVX2();
-            // }
-            // else if (System.Runtime.Intrinsics.X86.Avx.IsSupported) {
-            //     _MatMul = new nn.CPU.MatMulAVX();
-            // }
-            // else {
-            //     _MatMul = new nn.CPU.MatMulC();
-            // }
-            _MatMul = new nn.F.MatMul(-1);
+
+            if (!naive && System.Runtime.Intrinsics.X86.Avx2.IsSupported) {
+                _MatMul = new nn.CPU.MatMulAVX2(maxDegreeOfParallelism);
+            } else {
+                _MatMul = new nn.F.MatMul(maxDegreeOfParallelism);
+            }
         }
 
         public void Dispose() {
-            if (_Out != null) _Out.Dispose();
+            if (_Out != null)
+                _Out.Dispose();
             _Out = null;
-            if (_In != null) _In.Dispose();
+            if (_In != null)
+                _In.Dispose();
             _In = null;
-            if (_Bias != null) _Bias.Dispose();
-            if (_Weight != null) _Weight.Dispose();
-            if (_MatMul != null) _MatMul.Dispose();
+            if (_MatMul != null)
+                _MatMul.Dispose();
             _MatMul = null;
+            if (_Bias != null)
+                _Bias.Dispose();
+            if (_Weight != null)
+                _Weight.Dispose();
         }
 
         public IEnumerable<Tensor> parameters() {

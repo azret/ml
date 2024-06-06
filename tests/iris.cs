@@ -52,7 +52,14 @@ unsafe internal static class iris {
         }
     }
 
-    public static void run(TextWriter Console, string data_file, string optim, string loss_fn, float lr, uint batch_size) {
+    public static void test_iris(
+        TextWriter Console,
+        string data_file,
+        string optim,
+        string loss_fn,
+        float lr,
+        uint batch_size,
+        int maxDegreeOfParallelism) {
 
         var data = File.ReadAllLines(data_file);
 
@@ -74,10 +81,10 @@ unsafe internal static class iris {
         Linear fc1, fc2;
 
         nn.Sequential model = new nn.Sequential(
-            fc1 = new Linear(4, 8, bias: true),
+            fc1 = new Linear(4, 8, bias: true, maxDegreeOfParallelism: -1, naive: true),
             new nn.Identity(),
             new nn.ReLU(),
-            fc2 = new Linear(8, 3, bias: false),
+            fc2 = new Linear(8, 3, bias: false, maxDegreeOfParallelism: -1, naive: true),
             new nn.Identity(),
             new nn.Sigmoid()
         );

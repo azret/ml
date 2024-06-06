@@ -71,7 +71,7 @@ internal unsafe class Run {
 
         Console.WriteLine("Testing SGD...");
         var OUT = File.CreateText(rootPath + "iris.csharp.SGD.txt");
-        iris.run(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-3f, batch_size: 40);
+        iris.test_iris(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-3f, batch_size: 40, maxDegreeOfParallelism: 0);
         OUT.Flush();
         OUT.Close();
 
@@ -95,7 +95,7 @@ internal unsafe class Run {
 
         Console.WriteLine("Testing AdamW...");
         OUT = File.CreateText(rootPath + "iris.csharp.AdamW.txt");
-        iris.run(OUT, rootPath + "iris.csv", "AdamW", "BCELoss", 1e-6f, batch_size: 30);
+        iris.test_iris(OUT, rootPath + "iris.csv", "AdamW", "BCELoss", 1e-6f, batch_size: 30, maxDegreeOfParallelism: 0);
         OUT.Flush();
         OUT.Close();
 

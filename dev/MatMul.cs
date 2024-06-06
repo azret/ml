@@ -132,7 +132,7 @@ namespace nn.dev {
                     O);
 
                 ok &= validate_results(_k_Mem_Out.grad, _h_Mem_Out.grad, _k_Mem_Out.numel(), "\nout.grad");
-                ok &= validate_results(_k_Mem_In.grad, _h_Mem_In.grad, _k_Mem_In.numel(), "\nin.grad", 0.001f);
+                ok &= validate_results(_k_Mem_In.grad, _h_Mem_In.grad, _k_Mem_In.numel(), "\nin.grad");
                 ok &= validate_results(_k_Mem_Weight.grad, _h_Mem_Weight.grad, _k_Mem_Weight.numel(), "\nweight.grad");
                 ok &= validate_results(_k_Mem_Bias.grad, _h_Mem_Bias.grad, _k_Mem_Bias.numel(), "\nbias.grad");
 

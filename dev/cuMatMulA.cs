@@ -4,7 +4,6 @@ using System.Threading;
 
 using static cuda;
 using static nvrtc;
-using static std;
 
 namespace nn.dev {
     public unsafe sealed partial class cuTensor : CriticalFinalizerObject, IDisposable {
