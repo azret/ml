@@ -107,12 +107,12 @@ internal unsafe class Run {
         Console.WriteLine("Testing SGD...");
 
         var OUT = File.CreateText(rootPath + "iris.csharp.SGD.txt");
-        iris.test_iris(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-3f, batch_size: 40, maxDegreeOfParallelism: 0);
+        iris.test_iris(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-4f, batch_size: 40, maxDegreeOfParallelism: 0);
         OUT.Flush();
         OUT.Close();
 
         OUT = File.CreateText(rootPath + "iris.pytorch.SGD.txt");
-        OUT.Write(runpy(rootPath + "iris.py --batch_size 40 --optim SGD --lr 1e-3 --loss MSELoss"));
+        OUT.Write(runpy(rootPath + "iris.py --batch_size 40 --optim SGD --lr 1e-4 --loss MSELoss"));
         OUT.Flush();
         OUT.Close();
 
@@ -120,11 +120,15 @@ internal unsafe class Run {
                 File.ReadAllText(rootPath + "iris.pytorch.SGD.txt")) {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("ERROR!");
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine("\nEXPECTED: " + File.ReadAllText(rootPath + "iris.pytorch.SGD.txt"));
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("ACTUAL: " + File.ReadAllText(rootPath + "iris.csharp.SGD.txt"));
+            var py_lines = File.ReadAllLines(rootPath + "iris.pytorch.SGD.txt");
+            var cs_lines = File.ReadAllLines(rootPath + "iris.csharp.SGD.txt");
+            for (int i = 0; i < py_lines.Length; i++) {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("\nEXPECTED: " + py_lines[i]);
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("ACTUAL: " + cs_lines[i]);
+            }
             exitCode = 1;
         } else {
             Console.ForegroundColor = ConsoleColor.Green;
