@@ -69,32 +69,12 @@ internal unsafe class Run {
 
         // =================== Testing SGD =======================
 
-        Console.WriteLine("Testing SGD...");
-        var OUT = File.CreateText(rootPath + "iris.csharp.SGD.txt");
-        iris.test_iris(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-3f, batch_size: 40, maxDegreeOfParallelism: 0);
-        OUT.Flush();
-        OUT.Close();
-
-        OUT = File.CreateText(rootPath + "iris.pytorch.SGD.txt");
-        OUT.Write(runpy(rootPath + "iris.py --batch_size 40 --optim SGD --lr 1e-3 --loss MSELoss"));
-        OUT.Flush();
-        OUT.Close();
-
-        if (File.ReadAllText(rootPath + "iris.csharp.SGD.txt") !=
-                File.ReadAllText(rootPath + "iris.pytorch.SGD.txt")) {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("FAILED!");
-            exitCode = 1;
-        } else {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("OK.");
-        }
-        Console.ResetColor();
+        test_sgd(rootPath, ref exitCode);
 
         // =================== Testing AdamW =======================
 
         Console.WriteLine("Testing AdamW...");
-        OUT = File.CreateText(rootPath + "iris.csharp.AdamW.txt");
+        StreamWriter OUT = File.CreateText(rootPath + "iris.csharp.AdamW.txt");
         iris.test_iris(OUT, rootPath + "iris.csv", "AdamW", "BCELoss", 1e-6f, batch_size: 30, maxDegreeOfParallelism: 0);
         OUT.Flush();
         OUT.Close();
@@ -121,6 +101,36 @@ internal unsafe class Run {
         }
 
         return exitCode;
+    }
+
+    private static void test_sgd(string rootPath, ref int exitCode) {
+        Console.WriteLine("Testing SGD...");
+
+        var OUT = File.CreateText(rootPath + "iris.csharp.SGD.txt");
+        iris.test_iris(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-3f, batch_size: 40, maxDegreeOfParallelism: 0);
+        OUT.Flush();
+        OUT.Close();
+
+        OUT = File.CreateText(rootPath + "iris.pytorch.SGD.txt");
+        OUT.Write(runpy(rootPath + "iris.py --batch_size 40 --optim SGD --lr 1e-3 --loss MSELoss"));
+        OUT.Flush();
+        OUT.Close();
+
+        if (File.ReadAllText(rootPath + "iris.csharp.SGD.txt") !=
+                File.ReadAllText(rootPath + "iris.pytorch.SGD.txt")) {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("FAILED!");
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Console.WriteLine("\nEXPECTED: " + File.ReadAllText(rootPath + "iris.pytorch.SGD.txt"));
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("ACTUAL: " + File.ReadAllText(rootPath + "iris.csharp.SGD.txt"));
+            exitCode = 1;
+        } else {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("OK.");
+        }
+        Console.ResetColor();
     }
 
     static void test_bernoulli(string rootPath, ref int exitCode) {
