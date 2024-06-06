@@ -381,6 +381,10 @@
             }
         }
 
+        public override string ToString() {
+            return $"{GetType().FullName}<{(_MatMul != null ? _MatMul.GetType().Name : "")}>";
+        }
+
         public void Dispose() {
             if (_Out != null)
                 _Out.Dispose();

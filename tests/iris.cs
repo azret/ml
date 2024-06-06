@@ -59,7 +59,8 @@ unsafe internal static class iris {
         string loss_fn,
         float lr,
         uint batch_size,
-        int maxDegreeOfParallelism) {
+        int maxDegreeOfParallelism,
+        bool naive) {
 
         var data = File.ReadAllLines(data_file);
 
@@ -81,13 +82,16 @@ unsafe internal static class iris {
         Linear fc1, fc2;
 
         nn.Sequential model = new nn.Sequential(
-            fc1 = new Linear(4, 8, bias: true, maxDegreeOfParallelism: 0, naive: true),
+            fc1 = new Linear(4, 8, bias: true, maxDegreeOfParallelism: maxDegreeOfParallelism, naive: naive),
             new nn.Identity(),
             new nn.ReLU(),
-            fc2 = new Linear(8, 3, bias: false, maxDegreeOfParallelism: 0, naive: true),
+            fc2 = new Linear(8, 3, bias: false, maxDegreeOfParallelism: maxDegreeOfParallelism, naive: naive),
             new nn.Identity(),
             new nn.Sigmoid()
         );
+
+        global::System.Console.WriteLine($"fc1: {fc1.ToString()}");
+        global::System.Console.WriteLine($"fc1: {fc2.ToString()}");
 
         reset_weights(fc1, g);
         reset_weights(fc2, g);

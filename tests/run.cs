@@ -48,6 +48,7 @@ internal unsafe class Run {
         Console.WriteLine("> cpu: avx: " + System.Runtime.Intrinsics.X86.Avx.IsSupported);
         Console.WriteLine("> cpu: avx2: " + System.Runtime.Intrinsics.X86.Avx2.IsSupported);
         Console.WriteLine("> cpu: avx512f: " + System.Runtime.Intrinsics.X86.Avx512F.IsSupported);
+
         Console.WriteLine();
         Console.WriteLine("> exe: " + Assembly.GetExecutingAssembly().Location);
         string rootPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -69,13 +70,31 @@ internal unsafe class Run {
 
         // =================== Testing SGD =======================
 
-        test_sgd(rootPath, ref exitCode);
+        test_sgd(rootPath, 0, true, ref exitCode);
+        test_sgd(rootPath, 0, false, ref exitCode);
+        test_sgd(rootPath, -1, true, ref exitCode);
+        test_sgd(rootPath, -1, false, ref exitCode);
 
         // =================== Testing AdamW =======================
 
-        Console.WriteLine("Testing AdamW...");
+        test_adam(rootPath, 0, true, ref exitCode);
+        test_adam(rootPath, 0, false, ref exitCode);
+        test_adam(rootPath, -1, true, ref exitCode);
+        test_adam(rootPath, -1, false, ref exitCode);
+
+        if (Debugger.IsAttached) {
+            Console.Write("\nPress any key to continue...");
+            Console.ReadKey();
+        }
+
+        return exitCode;
+    }
+
+    private static void test_adam(string rootPath, int maxDegreeOfParallelism, bool naive, ref int exitCode) {
+        Console.WriteLine($"test_adam w/ maxDegreeOfParallelism = {maxDegreeOfParallelism}, naive = {naive}");
+
         StreamWriter OUT = File.CreateText(rootPath + "iris.csharp.AdamW.txt");
-        iris.test_iris(OUT, rootPath + "iris.csv", "AdamW", "BCELoss", 1e-6f, batch_size: 30, maxDegreeOfParallelism: 0);
+        iris.test_iris(OUT, rootPath + "iris.csv", "AdamW", "BCELoss", 1e-6f, batch_size: 30, maxDegreeOfParallelism: maxDegreeOfParallelism, naive: naive);
         OUT.Flush();
         OUT.Close();
 
@@ -94,20 +113,13 @@ internal unsafe class Run {
             Console.WriteLine("OK.");
         }
         Console.ResetColor();
-
-        if (Debugger.IsAttached) {
-            Console.Write("\nPress any key to continue...");
-            Console.ReadKey();
-        }
-
-        return exitCode;
     }
 
-    private static void test_sgd(string rootPath, ref int exitCode) {
-        Console.WriteLine("Testing SGD...");
+    private static void test_sgd(string rootPath, int maxDegreeOfParallelism, bool naive, ref int exitCode) {
+        Console.WriteLine($"test_sgd w/ maxDegreeOfParallelism = {maxDegreeOfParallelism}, naive = {naive}");
 
         var OUT = File.CreateText(rootPath + "iris.csharp.SGD.txt");
-        iris.test_iris(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-4f, batch_size: 40, maxDegreeOfParallelism: 0);
+        iris.test_iris(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-4f, batch_size: 40, maxDegreeOfParallelism: maxDegreeOfParallelism, naive: naive);
         OUT.Flush();
         OUT.Close();
 

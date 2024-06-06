@@ -1,8 +1,6 @@
 ﻿namespace nn {
     using System;
     using System.Runtime.ConstrainedExecution;
-    using System.Runtime.InteropServices;
-    using System.Threading;
     using System.Threading.Tasks;
 
     public static unsafe partial class F {
@@ -337,30 +335,6 @@
             public override string ToString() {
                 return $"{GetType().Name}: threads = {_maxDegreeOfParallelism}";
             }
-
-            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-            public unsafe delegate void T_forward(
-                float* _Out,       /* [B, O] */
-                float* _In,        /* [B, I] */
-                float* _Weight,    /* [I, O] */
-                float* _Bias,      /* [O] */
-                uint B,
-                uint I,
-                uint O);
-
-            [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-            public unsafe delegate void T_backward(
-                float* _Out,       /* [B, O] */
-                float* d_Out,       /* [B, O] */
-                float* _In,        /* [B, I] */
-                float* d_In,        /* [B, I] */
-                float* _Weight,    /* [I, O] */
-                float* d_Weight,    /* [I, O] */
-                float* _Bias,      /* [O] */
-                float* d_Bias,      /* [O] */
-                uint B,
-                uint I,
-                uint O);
 
             public virtual void forward(
                 float* _Out,       /* [B, O] */

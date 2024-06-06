@@ -20,17 +20,19 @@ typedef struct {
     unsigned int O;
 } MatMul;
 
-void matmul_forward_kernel(MatMul* args, unsigned int bo) {
+void _ASM_FORWARD_KERNEL_AVX2(MatMul* args, unsigned int bo) {
     float* _Out = args->_Out;
     float* _In = args->_In;
     float* _Weight = args->_Weight;
     float* _Bias = args->_Bias;
+
     unsigned int B = args->B;
     unsigned int I = args->I;
     unsigned int O = args->O;
 
     unsigned int b = bo / O;
     unsigned int o = bo % O;
+
     if (b < B && o < O) {
         float* x = _In + b * I;
         float* y = _Out + b * O;
@@ -43,13 +45,89 @@ void matmul_forward_kernel(MatMul* args, unsigned int bo) {
     }
 }
 
-void matmul_backward(MatMul* args) {
+void _ASM_FORWARD_AVX2(MatMul* args) {
+    float* _Out = args->_Out;
+    float* _In = args->_In;
+    float* _Weight = args->_Weight;
+    float* _Bias = args->_Bias;
+
+    unsigned int B = args->B;
+    unsigned int I = args->I;
+    unsigned int O = args->O;
+
+    for (unsigned int bo = 0; bo < B * O; bo++) {
+
+        unsigned int b = bo / O;
+        unsigned int o = bo % O;
+
+        if (b < B && o < O) {
+            float* x = _In + b * I;
+            float* y = _Out + b * O;
+            float acc = _Bias ? _Bias[o] : 0;
+            float* w = _Weight + o * I;
+            for (int i = 0; i < I; i++) {
+                acc += w[i] * x[i];
+            }
+            y[o] = (float)acc;
+        }
+    }
+}
+
+void _ASM_MATMUL_BACKWARD_KERNAL_AVX2_I(MatMul* args, unsigned int b) {
     float* d_Out = args->d_Out;
     float* _In = args->_In;
     float* d_In = args->d_In;
     float* _Weight = args->_Weight;
     float* d_Weight = args->d_Weight;
     float* d_Bias = args->d_Bias;
+
+    unsigned int B = args->B;
+    unsigned int I = args->I;
+    unsigned int O = args->O;
+
+    for (unsigned int o = 0; o < O; o++) {
+        float* d_In_b = d_In + b * I;
+        float* _Weight_o = _Weight + o * I;
+        float d = d_Out[b * O + o];
+        for (unsigned int i = 0; i < I; i++) {
+            d_In_b[i] += _Weight_o[i] * d;
+        }
+    }
+}
+
+void _ASM_MATMUL_BACKWARD_KERNAL_AVX2_II(MatMul* args, unsigned int o) {
+    float* d_Out = args->d_Out;
+    float* _In = args->_In;
+    float* d_In = args->d_In;
+    float* _Weight = args->_Weight;
+    float* d_Weight = args->d_Weight;
+    float* d_Bias = args->d_Bias;
+
+    unsigned int B = args->B;
+    unsigned int I = args->I;
+    unsigned int O = args->O;
+
+    for (unsigned int b = 0; b < B; b++) {
+        float* _In_b = _In + b * I;
+        float* δ_Weight_o = d_Weight + o * I;
+        float δ = d_Out[b * O + o];
+        for (unsigned int i = 0; i < I; i++) {
+            δ_Weight_o[i] += _In_b[i] * δ;
+        }
+        if (d_Bias) {
+            d_Bias[o] += δ;
+        }
+    }
+}
+
+void _ASM_BACKWARD_AVX2(MatMul* args) {
+    float* d_Out = args->d_Out;
+    float* _In = args->_In;
+    float* d_In = args->d_In;
+    float* _Weight = args->_Weight;
+    float* d_Weight = args->d_Weight;
+    float* d_Bias = args->d_Bias;
+
     unsigned int B = args->B;
     unsigned int I = args->I;
     unsigned int O = args->O;
