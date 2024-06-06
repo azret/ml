@@ -119,7 +119,7 @@ internal unsafe class Run {
         if (File.ReadAllText(rootPath + "iris.csharp.SGD.txt") !=
                 File.ReadAllText(rootPath + "iris.pytorch.SGD.txt")) {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("FAILED!");
+            Console.WriteLine("ERROR!");
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("\nEXPECTED: " + File.ReadAllText(rootPath + "iris.pytorch.SGD.txt"));
             Console.WriteLine();

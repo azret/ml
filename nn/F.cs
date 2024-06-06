@@ -273,7 +273,7 @@
                         float* δ_In_b = _δ_In + b * I;
                         float* _Weight_o = _Weight + o * I;
                         float δ = _δ_Out[b * O + o];
-                        for (int i = 0; i < I; i++) {
+                        for (uint i = 0; i < I; i++) {
                             δ_In_b[i] += _Weight_o[i] * δ;
                         }
                     }
@@ -283,7 +283,7 @@
                         float* _In_b = _In + b * I;
                         float* δ_Weight_o = _δ_Weight + o * I;
                         float δ = _δ_Out[b * O + o];
-                        for (int i = 0; i < I; i++) {
+                        for (uint i = 0; i < I; i++) {
                             δ_Weight_o[i] += _In_b[i] * δ;
                         }
                         if (_δ_Bias != null) {
@@ -301,7 +301,7 @@
                         float* _Weight_o = _Weight + o * I;
                         float* δ_Weight_o = _δ_Weight + o * I;
                         float δ = _δ_Out[b * O + o];
-                        for (int i = 0; i < I; i++) {
+                        for (uint i = 0; i < I; i++) {
                             δ_In_b[i] += _Weight_o[i] * δ;
                             δ_Weight_o[i] += _In_b[i] * δ;
                         }

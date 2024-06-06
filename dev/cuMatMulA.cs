@@ -105,14 +105,14 @@ namespace nn.dev {
                  float* _In,        /* [B, I] */
                  float* _Weight,    /* [I, O] */
                  float* _Bias,      /* [O] */
-                 int B,
-                 int I,
-                 int O) {
+                 unsigned int B,
+                 unsigned int I,
+                 unsigned int O) {
 
-                int bo = blockIdx.x * blockDim.x + threadIdx.x;
+                unsigned int bo = blockIdx.x * blockDim.x + threadIdx.x;
 
-                int b = bo / O;
-                int o = bo % O;
+                unsigned int b = bo / O;
+                unsigned int o = bo % O;
 
                 if (b < B && o < O) {
                     float* x = _In + b * I;
@@ -120,7 +120,7 @@ namespace nn.dev {
                     float* w = _Weight + o * I;
 
                     float acc = _Bias ? _Bias[o] : 0;
-                    for (int i = 0; i < I; i++) {
+                    for (unsigned int i = 0; i < I; i++) {
                         acc += w[i] * x[i];
                     }
 
@@ -132,70 +132,52 @@ namespace nn.dev {
         static string MATMUL_BACKWARD_CU = @"
 
         extern ""C"" __global__  void matmul_backward_cu_part_1(
-            float* d_In,
-            float* d_Out,
+            float* _δ_In,
+            float* _δ_Out,
             float* _Weight,
-            int B,
-            int I,
-            int O) {
+            unsigned int B,
+            unsigned int I,
+            unsigned int O) {
 
-                int bo = blockIdx.x * blockDim.x + threadIdx.x;
+                int b = blockIdx.x * blockDim.x + threadIdx.x;
 
-                int b = bo / O;
-                int o = bo % O;
-
-                if (b < B && o < O) {
-
-                    float* dout_bt = d_Out + b * O;
-                    float* dinp_bt = d_In + b * I;
-
-                    //for (int o = 0; o < O; o++) {
-
-                        float* wrow = _Weight + o * I;
-                        float d = dout_bt[o];
-                        for (int i = 0; i < I; i++) {
-                            // dinp_bt[i] += wrow[i] * d;
-                            atomicAdd(&dinp_bt[i], wrow[i] * d);
+                if (b < B) {
+                    float* δ_In_b = _δ_In + b * I;
+                    for (unsigned int o = 0; o < O; o++) {
+                        float* _Weight_o = _Weight + o * I;
+                        float δ = _δ_Out[b * O + o];
+                        for (unsigned int i = 0; i < I; i++) {
+                            δ_In_b[i] += _Weight_o[i] * δ;
                         }
-
-                    //}
-
+                    }
                 }
 
             }
 
         extern ""C"" __global__  void matmul_backward_cu_part_2(
-            float* d_Out,
-            float* d_Weight,
-            float* d_Bias,
+            float* _δ_Out,
+            float* _δ_Weight,
+            float* _δ_Bias,
             float* _In,
-            int B,
-            int I,
-            int O) {
+            unsigned int B,
+            unsigned int I,
+            unsigned int O) {
 
-                int bo = blockIdx.x * blockDim.x + threadIdx.x;
+                int o = blockIdx.x * blockDim.x + threadIdx.x;
 
-                int b = bo / O;
-                int o = bo % O;
+                if (o < O) {
 
-                if (b < B && o < O) {
-
-                    // for (int o = 0; o < O; o++) {
-
-                        float* dout_bt = d_Out + b * O;
-                        float* inp_bt = _In + b * I;
-                        float* dwrow = d_Weight + o * I;
-                        float d = dout_bt[o];
-                        if (d_Bias) {
-                            // d_Bias[o] += d;
-                            atomicAdd(&d_Bias[o], d);
+                    for (unsigned int b = 0; b < B; b++) {
+                        float* _In_b = _In + b * I;
+                        float* δ_Weight_o = _δ_Weight + o * I;
+                        float δ = _δ_Out[b * O + o];
+                        for (unsigned int i = 0; i < I; i++) {
+                            δ_Weight_o[i] += _In_b[i] * δ;
                         }
-                        for (int i = 0; i < I; i++) {
-                            // dwrow[i] += inp_bt[i] * d;
-                            atomicAdd(&dwrow[i], inp_bt[i] * d);
+                        if (_δ_Bias) {
+                            _δ_Bias[o] += δ;
                         }
-
-                    // }
+                    }
 
                 }
 
@@ -301,7 +283,7 @@ namespace nn.dev {
 
             checkCudaErrors(cuLaunchKernel(
                 _matmul_backward_cu_part_1,
-                CEIL_DIV(B * O, block_size), 1, 1,
+                CEIL_DIV(B, block_size), 1, 1,
                 block_size, 1, 1,
                 0,
                 IntPtr.Zero,
@@ -337,7 +319,7 @@ namespace nn.dev {
 
             checkCudaErrors(cuLaunchKernel(
                 _matmul_backward_cu_part_2,
-                CEIL_DIV(B * O, block_size), 1, 1,
+                CEIL_DIV(O, block_size), 1, 1,
                 block_size, 1, 1,
                 0,
                 IntPtr.Zero,
