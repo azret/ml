@@ -82,11 +82,11 @@ unsafe internal static class iris {
         Linear fc1, fc2;
 
         nn.Sequential model = new nn.Sequential(
-            fc1 = new Linear(4, 8, bias: true, maxDegreeOfParallelism: maxDegreeOfParallelism, naive: naive),
+            fc1 = new Linear(4, 8, bias: true, maxDegreeOfParallelism: maxDegreeOfParallelism),
             new nn.Identity(),
             new nn.Tanh(),
             new nn.ReLU(),
-            fc2 = new Linear(8, 3, bias: false, maxDegreeOfParallelism: maxDegreeOfParallelism, naive: naive),
+            fc2 = new Linear(8, 3, bias: false, maxDegreeOfParallelism: maxDegreeOfParallelism),
             new nn.Identity(),
             new nn.LeakyReLU(),
             new nn.Sigmoid()

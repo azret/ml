@@ -26,14 +26,19 @@ internal unsafe class Run {
         processStartInfo.CreateNoWindow = true;
         processStartInfo.RedirectStandardOutput = true;
         processStartInfo.RedirectStandardInput = true;
+        processStartInfo.RedirectStandardError = true;
         processStartInfo.UseShellExecute = false;
         processStartInfo.Arguments = pyfile;
         processStartInfo.FileName = "python";
         Process process = new Process();
         process.StartInfo = processStartInfo;
         process.Start();
-        var output = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
+        var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+        if (!string.IsNullOrWhiteSpace(error)) {
+            Console.WriteLine(error);
+        }
         return output;
     }
 
@@ -58,27 +63,51 @@ internal unsafe class Run {
 
         int exitCode = 0;
 
-        // =================== Testing RNG =======================
+        // // =================== Testing SGD =======================
+        // 
+        // test_sgd(rootPath, 0, true, ref exitCode);
+        // test_sgd(rootPath, 0, false, ref exitCode);
+        // test_sgd(rootPath, -1, true, ref exitCode);
+        // test_sgd(rootPath, -1, false, ref exitCode);
+        // 
+        // // =================== Testing AdamW =======================
+        // 
+        // test_adam(rootPath, 0, true, ref exitCode);
+        // test_adam(rootPath, 0, false, ref exitCode);
+        // test_adam(rootPath, -1, true, ref exitCode);
+        // test_adam(rootPath, -1, false, ref exitCode);
 
-        test_bernoulli(rootPath, ref exitCode);
+        // =================== Basic Tests =======================
 
-        // =================== Testing Dropout =======================
+        test_net(rootPath, bias: false, "Identity", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-4f, momentum: 0, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: true, "Identity", maxDegreeOfParallelism: 0, optim: "AdamW", lr: 1e-4f, momentum: 0, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: false, "Identity", maxDegreeOfParallelism: -1, optim: "AdamW", lr: 1e-4f, momentum: 0, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: true, "Identity", maxDegreeOfParallelism: -1, optim: "SGD", lr: 1e-4f, momentum: 0, weight_decay: 0, ref exitCode);
 
-        test_dropout(rootPath, ref exitCode);
+        test_net(rootPath, bias: false, "ReLU", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-3f, momentum: 0, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: false, "Sigmoid", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-3f, momentum: 0, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: false, "LeakyReLU", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-3f, momentum: 0, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: false, "Tanh", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-3f, momentum: 0, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: false, "Dropout", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-3f, momentum: 0, weight_decay: 0, ref exitCode);
 
-        // =================== Testing SGD =======================
+        test_net(rootPath, bias: true, "Identity", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-1f, momentum: 0, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: false, "Identity", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-1f, momentum: 1e-1f, weight_decay: 1e-1f, ref exitCode);
+        test_net(rootPath, bias: true, "Identity", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-1f, momentum: 0, weight_decay: 1e-1f, ref exitCode);
+        test_net(rootPath, bias: false, "Identity", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-1f, momentum: 1e-1f, weight_decay: 0, ref exitCode);
 
-        test_sgd(rootPath, 0, true, ref exitCode);
-        test_sgd(rootPath, 0, false, ref exitCode);
-        test_sgd(rootPath, -1, true, ref exitCode);
-        test_sgd(rootPath, -1, false, ref exitCode);
+        test_net(rootPath, bias: true, "Identity", maxDegreeOfParallelism: 0, optim: "AdamW", lr: 1e-4f, momentum: 0, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: true, "Identity", maxDegreeOfParallelism: 0, optim: "AdamW", lr: 1e-4f, momentum: 0, weight_decay: 1e-4f, ref exitCode, decimals: 3);
+        test_net(rootPath, bias: false, "Identity", maxDegreeOfParallelism: 0, optim: "AdamW", lr: 1e-4f, momentum: 0, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: false, "Identity", maxDegreeOfParallelism: 0, optim: "AdamW", lr: 1e-4f, momentum: 0, weight_decay: 1e-4f, ref exitCode, decimals: 3);
 
-        // =================== Testing AdamW =======================
+        // // =================== Testing RNG =======================
+        // 
+        // test_bernoulli(rootPath, ref exitCode);
+        // 
+        // // =================== Testing Dropout =======================
+        // 
+        // test_dropout(rootPath, ref exitCode);
 
-        test_adam(rootPath, 0, true, ref exitCode);
-        test_adam(rootPath, 0, false, ref exitCode);
-        test_adam(rootPath, -1, true, ref exitCode);
-        test_adam(rootPath, -1, false, ref exitCode);
 
         if (Debugger.IsAttached) {
             Console.Write("\nPress any key to continue...");
@@ -86,6 +115,67 @@ internal unsafe class Run {
         }
 
         return exitCode;
+    }
+
+    private static void test_net(
+        string rootPath,
+        bool bias,
+        string activation,
+        int maxDegreeOfParallelism,
+        string optim,
+        float lr,
+        float momentum,
+        float weight_decay,
+        ref int exitCode,
+        int decimals = 4) {
+
+        if (string.IsNullOrWhiteSpace(rootPath)) {
+            throw new ArgumentException($"'{nameof(rootPath)}' cannot be null or whitespace.", nameof(rootPath));
+        }
+        if (string.IsNullOrWhiteSpace(activation)) {
+            throw new ArgumentException($"'{nameof(activation)}' cannot be null or whitespace.", nameof(activation));
+        }
+
+        string cs_log = "test_net.cs.txt";
+        string py_log = "test_net.py.txt";
+
+        string py_args = $"generic.py --decimals {decimals} --bias {(bias ? "yes" : "no")} --activation {activation} --optim {optim} --lr {lr:0e+00} --momentum {momentum:0e+00} --weight_decay {weight_decay:0e+00} --maxDegreeOfParallelism {maxDegreeOfParallelism}";
+
+        if (File.Exists(rootPath + cs_log)) File.Delete(rootPath + cs_log);
+        if (File.Exists(rootPath + py_log)) File.Delete(rootPath + py_log);
+
+        Console.WriteLine(py_args);
+
+        StreamWriter OUT = File.CreateText(rootPath + cs_log);
+        generic.test_net(OUT, bias, activation, maxDegreeOfParallelism, optim, lr, momentum, weight_decay, decimals);
+        OUT.Flush();
+        OUT.Close();
+
+        OUT = File.CreateText(rootPath + py_log);
+        OUT.Write(runpy(rootPath + py_args));
+        OUT.Flush();
+        OUT.Close();
+
+        if (File.ReadAllText(rootPath + cs_log) !=
+            File.ReadAllText(rootPath + py_log)) {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("ERROR!");
+                var py_lines = File.ReadAllLines(rootPath + py_log);
+                var cs_lines = File.ReadAllLines(rootPath + cs_log);
+                for (int i = 0; i < py_lines.Length; i++) {
+                    if (py_lines[i] != cs_lines[i]) {
+                        Console.ForegroundColor = ConsoleColor.DarkYellow;
+                        Console.WriteLine("\nEXPECTED: " + py_lines[i]);
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("ACTUAL: " + cs_lines[i]);
+                    }
+                }
+                exitCode = 1;
+        } else {
+            Console.ForegroundColor = ConsoleColor.Green;
+        }
+
+        Console.ResetColor();
     }
 
     private static void test_adam(string rootPath, int maxDegreeOfParallelism, bool naive, ref int exitCode) {

@@ -442,6 +442,12 @@
 
     [DebuggerDisplay("nn.Linear ({I}, {O})")]
     public unsafe class Linear : IModel {
+        public enum Kernel {
+            Default,
+            Naive,
+            AVX2
+        }
+
         F.MatMul _MatMul;
 
         public readonly uint I;
@@ -458,7 +464,7 @@
             int O,
             bool bias = true,
             int maxDegreeOfParallelism = -1,
-            bool naive = false) {
+            Kernel kernel = Kernel.Default) {
 
             if (I <= 0 || I >= short.MaxValue / 2) {
                 throw new ArgumentOutOfRangeException(nameof(I));
@@ -476,10 +482,25 @@
                 ? new Tensor(this.O, requires_grad: true)
                 : null;
 
-            if (!naive && System.Runtime.Intrinsics.X86.Avx2.IsSupported) {
-                _MatMul = new nn.CPU.MatMulAVX2(maxDegreeOfParallelism);
-            } else {
-                _MatMul = new nn.F.MatMul(maxDegreeOfParallelism);
+            switch (kernel) {
+                case Kernel.Naive:
+                    _MatMul = new nn.F.MatMul(maxDegreeOfParallelism);
+                    break;
+                case Kernel.AVX2:
+                    if (System.Runtime.Intrinsics.X86.Avx2.IsSupported) {
+                        throw new InvalidProgramException("AVX2 is not supported.");
+                    }
+                    _MatMul = new nn.CPU.MatMulAVX2(maxDegreeOfParallelism);
+                    break;
+                case Kernel.Default:
+                    if (System.Runtime.Intrinsics.X86.Avx2.IsSupported) {
+                        _MatMul = new nn.CPU.MatMulAVX2(maxDegreeOfParallelism);
+                    } else {
+                        _MatMul = new nn.F.MatMul(maxDegreeOfParallelism);
+                    }
+                    break;
+                default:
+                    throw new NotSupportedException($"The specified kernel '{kernel}' is not supported.");
             }
         }
 

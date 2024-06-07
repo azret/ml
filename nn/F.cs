@@ -51,33 +51,33 @@
         }
 
         public static double binary_cross_entropy(
-            Tensor output,
+            Tensor logits,
             Tensor target) {
 
             const double EPSILON = 1e-12f;
 
-            if (output is null) throw new ArgumentNullException(nameof(output));
+            if (logits is null) throw new ArgumentNullException(nameof(logits));
             if (target is null) throw new ArgumentNullException(nameof(target));
 
-            if (target.numel() != output.numel())
-                throw new ArgumentOutOfRangeException(nameof(output), $"number of '{nameof(output)}' and '{nameof(target)}' elements must match");
+            if (target.numel() != logits.numel())
+                throw new ArgumentOutOfRangeException(nameof(logits), $"number of '{nameof(logits)}' and '{nameof(target)}' elements must match");
 
-            uint N = output.numel();
+            uint N = logits.numel();
 
             double acc = 0;
 
-            float* _Out = output.data;
+            float* _Out = logits.data;
             float* _Target = target.data;
 
             for (int n = 0; n < N; n++) {
 
-                if (_Out[n] < 0f || _Out[n] > 1f || float.IsNaN(_Out[n])) throw new ArgumentOutOfRangeException(nameof(output), $"all elements of '{nameof(output)}' should be between 0 and 1");
+                if (_Out[n] < 0f || _Out[n] > 1f || float.IsNaN(_Out[n])) throw new ArgumentOutOfRangeException(nameof(logits), $"all elements of '{nameof(logits)}' should be between 0 and 1");
                 if (_Target[n] < 0f || _Target[n] > 1f || float.IsNaN(_Target[n])) throw new ArgumentOutOfRangeException(nameof(target), $"all elements of '{nameof(target)}' should be between 0 and 1");
 
                 acc += -(Math.Log(_Out[n] + EPSILON) * _Target[n]
                           + (1.0 - _Target[n]) * Math.Log(1.0 - _Out[n] + EPSILON));
 
-                output.grad[n] = (float)((_Out[n] - _Target[n]) /
+                logits.grad[n] = (float)((_Out[n] - _Target[n]) /
                     Math.Max(
                         (1.0 - _Out[n]) * _Out[n],
                         EPSILON) / N);
