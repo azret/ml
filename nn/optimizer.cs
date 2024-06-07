@@ -2,10 +2,11 @@
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using static std;
 
-    public interface IOptimizer {
+    public interface IOptimizer : IDisposable {
         float lr { get; set; }
         uint get_num_params();
         void reset();
@@ -52,6 +53,8 @@
 
         public abstract void update();
 
+        public abstract void Dispose();
+
         public uint get_num_params() {
             uint num = 0;
 
@@ -72,10 +75,12 @@
             : base(parameters, lr) {
         }
 
+        public override void Dispose() {
+        }
+
         public override void update() {
             for (int p = 0; p < _params.Length; p++) {
                 Tensor T = _params[p];
-
                 for (int n = 0; n < T.numel(); n++) {
                     T.data[n] -= T.grad[n] * lr;
                 }
@@ -112,7 +117,7 @@
 
         public float weight_decay { get => _weight_decay; set => _weight_decay = value; }
 
-        public void Dispose() {
+        public override void Dispose() {
             free(m_memory);
             m_memory = null;
             free(v_memory);
@@ -126,41 +131,43 @@
         }
 
         public override void update() {
-            uint i = 0, p;
-
             if (m_memory == null) {
-                for (p = 0; p < _params.Length; p++) {
+                uint num_params = 0;
+                for (uint p = 0; p < _params.Length; p++) {
                     Tensor tensor = _params[p];
-                    i += (uint)tensor.numel();
+                    num_params += tensor.numel();
                 }
-
-                m_memory = (float*)malloc(i * (uint)sizeof(float));
-                v_memory = (float*)malloc(i * (uint)sizeof(float));
-
-                memset(m_memory, 0, i * sizeof(float));
-                memset(v_memory, 0, i * sizeof(float));
+                m_memory = (float*)malloc(num_params * sizeof(float));
+                v_memory = (float*)malloc(num_params * sizeof(float));
+                memset(m_memory, 0, num_params * sizeof(float));
+                memset(v_memory, 0, num_params * sizeof(float));
             }
 
-            for (p = 0, i = 0; p < _params.Length; p++) {
+            int z = -1;
+
+            for (uint p = 0; p < _params.Length; p++) {
                 Tensor T = _params[p];
 
-                // Parallel.For(0, T.numel(), (n) => {
-                // });
+                Parallel.For(0, T.numel(), (n) => {
+                    // for (int n = 0; n < T.numel(); n++) 
+                    {
+                        var i = Interlocked.Increment(ref z);
 
-                for (int n = 0; n < T.numel(); n++, i++) {
-                    double δf = T.grad[n];
+                        double δf = T.grad[n];
 
-                    double m = _beta1 * m_memory[i] + (1.0f - _beta1) * δf;
-                    double v = _beta2 * v_memory[i] + (1.0f - _beta2) * δf * δf;
+                        double m = _beta1 * m_memory[i] + (1.0f - _beta1) * δf;
+                        double v = _beta2 * v_memory[i] + (1.0f - _beta2) * δf * δf;
 
-                    double m_hat = m / (1.0 - Math.Pow(_beta1, _step + 1));
-                    double v_hat = v / (1.0 - Math.Pow(_beta2, _step + 1));
+                        double m_hat = m / (1.0 - Math.Pow(_beta1, _step + 1));
+                        double v_hat = v / (1.0 - Math.Pow(_beta2, _step + 1));
 
-                    m_memory[i] = (float)m;
-                    v_memory[i] = (float)v;
+                        m_memory[i] = (float)m;
+                        v_memory[i] = (float)v;
 
-                    T.data[n] -= (float)(lr * (m_hat / (Math.Sqrt(v_hat) + _eps) - (double)_weight_decay * T.data[n]));
-                }
+                        T.data[n] -= (float)(lr * (m_hat / (Math.Sqrt(v_hat) + _eps) - (double)_weight_decay * T.data[n]));
+
+                    }
+                });
             }
         }
     }
