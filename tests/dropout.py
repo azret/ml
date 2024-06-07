@@ -30,11 +30,13 @@ class Net(nn.Module):
         self.dropout = None
         if dropout:
             self.dropout = nn.Dropout(p)
+        self.tanh = nn.Tanh()
 
     def forward(self, x):
         x = self.hidden(x)
         if self.dropout is not None:
             x = self.dropout(x)
+        x = self.tanh(x)
         return x
 
 def test_dropout_backward(use_dropout, p):

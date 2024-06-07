@@ -84,9 +84,11 @@ unsafe internal static class iris {
         nn.Sequential model = new nn.Sequential(
             fc1 = new Linear(4, 8, bias: true, maxDegreeOfParallelism: maxDegreeOfParallelism, naive: naive),
             new nn.Identity(),
+            new nn.Tanh(),
             new nn.ReLU(),
             fc2 = new Linear(8, 3, bias: false, maxDegreeOfParallelism: maxDegreeOfParallelism, naive: naive),
             new nn.Identity(),
+            new nn.LeakyReLU(),
             new nn.Sigmoid()
         );
 
@@ -105,7 +107,7 @@ unsafe internal static class iris {
             Console.WriteLine($"fc2.bias: {Common.pretty_logits(fc2._Bias.data, fc2._Bias.numel())}");
         }
 
-        var x = Tensor.NaN(batch_size * fc1.I);
+        var x = Tensor.NaN(batch_size * fc1.I, requires_grad: true);
         var y = Tensor.NaN(batch_size * fc2.O);
 
         IOptimizer optimizer = null;

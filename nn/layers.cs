@@ -9,13 +9,13 @@
         Tensor backward(Tensor output);
     }
 
-    public interface ILayer : ICompute, IDisposable {
+    public interface IModel : ICompute, IDisposable {
         IEnumerable<Tensor> parameters();
         void eval();
         void train();
     }
 
-    public sealed class Identity : ILayer {
+    public sealed class Identity : IModel {
         public void Dispose() { }
         public IEnumerable<Tensor> parameters() { yield break; }
         public void eval() { }
@@ -24,31 +24,31 @@
         public Tensor backward(Tensor output) { return output; }
     }
 
-    public unsafe sealed class Sequential : ILayer, IEnumerable<ILayer> {
-        ILayer[] _Mx = Array.Empty<ILayer>();
+    public unsafe sealed class Sequential : IModel, IEnumerable<IModel> {
+        IModel[] _Mx = Array.Empty<IModel>();
 
-        public IEnumerator<ILayer> GetEnumerator() {
-            return ((IEnumerable<ILayer>)_Mx).GetEnumerator();
+        public IEnumerator<IModel> GetEnumerator() {
+            return ((IEnumerable<IModel>)_Mx).GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator() {
             return _Mx.GetEnumerator();
         }
 
-        public ILayer this[int index] {
+        public IModel this[int index] {
             get {
                 return _Mx[index];
             }
         }
 
-        public Sequential(params ILayer[] modules) {
+        public Sequential(params IModel[] modules) {
             foreach (var m in modules) {
                 add(m);
             }
         }
 
-        public void add(ILayer m) {
-            var Mx = new ILayer[_Mx.Length + 1];
+        public void add(IModel m) {
+            var Mx = new IModel[_Mx.Length + 1];
             Array.Copy(_Mx, Mx, _Mx.Length);
             Mx[_Mx.Length] = m;
             _Mx = Mx;
@@ -63,7 +63,7 @@
         }
 
         public IEnumerable<Tensor> parameters() {
-            foreach (ILayer m in _Mx) {
+            foreach (IModel m in _Mx) {
                 foreach (var p in m.parameters()) {
                     yield return p;
                 }
@@ -71,13 +71,13 @@
         }
 
         public void eval() {
-            foreach (ILayer m in _Mx) {
+            foreach (IModel m in _Mx) {
                 m.eval();
             }
         }
 
         public void train() {
-            foreach (ILayer m in _Mx) {
+            foreach (IModel m in _Mx) {
                 m.train();
             }
         }
@@ -97,56 +97,37 @@
         }
     }
 
-    public unsafe class ReLU : ILayer {
+    public unsafe class Tanh : IModel {
         Tensor _In, _Out;
 
         public void Dispose() {
+            _In = null;
             if (_Out != null) _Out.Dispose();
             _Out = null;
-            if (_In != null) _In.Dispose();
-            _In = null;
         }
 
         public IEnumerable<Tensor> parameters() { yield break; }
-
         public void eval() { }
-
         public void train() { }
 
-        protected virtual void forward(
-            float* _Out,       /* [N] */
-            float* _In,        /* [N] */
-            uint N) {
-
-            F.relu_forward_cpu(
-                _Out,
-                _In,
-                N);
-        }
-
         public Tensor forward(Tensor input) {
+            if (input is null) {
+                throw new ArgumentNullException(nameof(input));
+            }
+
             uint N = input.numel();
 
-            // Dynamically create space for input and output to accommodate the batch size
+            _In = input;
 
-            if (_In is null) {
-                _In = new Tensor(N, requires_grad: true);
-            } else {
-                if (_In.numel() != N) {
-                    _In.resize((N));
-                }
-            }
             if (_Out is null) {
                 _Out = new Tensor(N, requires_grad: true);
             } else {
                 if (_Out.numel() != N) {
-                    _Out.resize((N));
+                    _Out.resize(N);
                 }
             }
 
-            _In.fill_(input.data, N);
-
-            forward(
+            F.tanh_forward_cpu(
                 _Out.data,
                 _In.data,
                 N);
@@ -155,9 +136,73 @@
         }
 
         public Tensor backward(Tensor output) {
-            uint N = _In.numel();
+            if (output is null) {
+                throw new ArgumentNullException(nameof(output));
+            }
 
-            if (output.numel() != N) throw new InvalidOperationException();
+            uint N = output.numel();
+
+            if (_In.numel() != N) throw new InvalidOperationException();
+
+            _In.zero_grad();
+
+            F.tanh_backward_cpu(
+                output.data,
+                output.grad,
+                _In.data,
+                _In.grad,
+                N);
+
+            return _In;
+        }
+    }
+
+    public unsafe class ReLU : IModel {
+        Tensor _In, _Out;
+
+        public void Dispose() {
+            _In = null;
+            if (_Out != null) _Out.Dispose();
+            _Out = null;
+        }
+
+        public IEnumerable<Tensor> parameters() { yield break; }
+        public void eval() { }
+        public void train() { }
+
+        public Tensor forward(Tensor input) {
+            if (input is null) {
+                throw new ArgumentNullException(nameof(input));
+            }
+
+            uint N = input.numel();
+
+            _In = input;
+
+            if (_Out is null) {
+                _Out = new Tensor(N, requires_grad: true);
+            } else {
+                if (_Out.numel() != N) {
+                    _Out.resize((N));
+                }
+            }
+
+            F.relu_forward_cpu(
+                _Out.data,
+                _In.data,
+                N);
+
+            return _Out;
+        }
+
+        public Tensor backward(Tensor output) {
+            if (output is null) {
+                throw new ArgumentNullException(nameof(output));
+            }
+
+            uint N = output.numel();
+
+            if (_In.numel() != N) throw new InvalidOperationException();
 
             _In.zero_grad();
 
@@ -172,7 +217,75 @@
         }
     }
 
-    public unsafe class Dropout : ILayer {
+    public unsafe class LeakyReLU : IModel {
+        public readonly double negval;
+
+        Tensor _In, _Out;
+
+        public LeakyReLU(double negval = 1e-2) {
+            this.negval = negval;
+        }
+
+        public void Dispose() {
+            _In = null;
+            if (_Out != null) _Out.Dispose();
+            _Out = null;
+        }
+
+        public IEnumerable<Tensor> parameters() { yield break; }
+        public void eval() { }
+        public void train() { }
+
+        public Tensor forward(Tensor input) {
+            if (input is null) {
+                throw new ArgumentNullException(nameof(input));
+            }
+
+            uint N = input.numel();
+
+            _In = input;
+
+            if (_Out is null) {
+                _Out = new Tensor(N, requires_grad: true);
+            } else {
+                if (_Out.numel() != N) {
+                    _Out.resize((N));
+                }
+            }
+
+            F.leaky_relu_forward_cpu(
+                _Out.data,
+                _In.data,
+                N,
+                negval);
+
+            return _Out;
+        }
+
+        public Tensor backward(Tensor output) {
+            if (output is null) {
+                throw new ArgumentNullException(nameof(output));
+            }
+
+            uint N = output.numel();
+
+            if (_In.numel() != N) throw new InvalidOperationException();
+
+            _In.zero_grad();
+
+            F.leaky_relu_backward_cpu(
+                output.data,
+                output.grad,
+                _In.data,
+                _In.grad,
+                N,
+                negval);
+
+            return _In;
+        }
+    }
+
+    public unsafe class Dropout : IModel {
         IRNG g;
 
         public readonly double p;
@@ -189,10 +302,9 @@
         }
 
         public void Dispose() {
+            _In = null;
             if (_Out != null) _Out.Dispose();
             _Out = null;
-            if (_In != null) _In.Dispose();
-            _In = null;
             if (_Mask != null) _Mask.Dispose();
             _Mask = null;
         }
@@ -208,31 +320,28 @@
         }
 
         public Tensor forward(Tensor input) {
+            if (input is null) {
+                throw new ArgumentNullException(nameof(input));
+            }
+
             uint N = input.numel();
 
-            if (_In is null) {
-                _In = new Tensor(N, requires_grad: true);
-            } else {
-                if (_In.numel() != N) {
-                    _In.resize((N));
-                }
-            }
             if (_Out is null) {
                 _Out = new Tensor(N, requires_grad: true);
             } else {
                 if (_Out.numel() != N) {
-                    _Out.resize((N));
+                    _Out.resize(N);
                 }
             }
             if (_Mask is null) {
                 _Mask = new Tensor(N, requires_grad: false);
             } else {
                 if (_Mask.numel() != N) {
-                    _Mask.resize((N));
+                    _Mask.resize(N);
                 }
             }
 
-            _In.fill_(input.data, N);
+            _In = input;
 
             F.dropout_forward_cpu(
                 _Out.data,
@@ -247,9 +356,13 @@
         }
 
         public Tensor backward(Tensor output) {
-            uint N = _In.numel();
+            if (output is null) {
+                throw new ArgumentNullException(nameof(output));
+            }
 
-            if (output.numel() != N) throw new InvalidOperationException();
+            uint N = output.numel();
+
+            if (_In.numel() != N) throw new InvalidOperationException();
 
             _In.zero_grad();
 
@@ -266,43 +379,27 @@
         }
     }
 
-    public unsafe class Sigmoid : ILayer {
-        Tensor _In, _Out;
+    public unsafe class Sigmoid : IModel {
+        Tensor _In;
+        Tensor _Out;
 
         public void Dispose() {
+            _In = null;
             if (_Out != null) _Out.Dispose();
             _Out = null;
-            if (_In != null) _In.Dispose();
-            _In = null;
         }
 
         public IEnumerable<Tensor> parameters() { yield break; }
         public void eval() { }
         public void train() { }
 
-        protected virtual void forward(
-            float* _Out,       /* [N] */
-            float* _In,        /* [N] */
-            uint N) {
-
-            F.sigmoid_forward_cpu(
-                _Out,
-                _In,
-                N);
-        }
-
         public Tensor forward(Tensor input) {
+            if (input is null) {
+                throw new ArgumentNullException(nameof(input));
+            }
+
             uint N = input.numel();
 
-            // Dynamically create space for input and output to accommodate the batch size
-
-            if (_In is null) {
-                _In = new Tensor(N, requires_grad: true);
-            } else {
-                if (_In.numel() != N) {
-                    _In.resize((N));
-                }
-            }
             if (_Out is null) {
                 _Out = new Tensor(N, requires_grad: true);
             } else {
@@ -311,9 +408,9 @@
                 }
             }
 
-            _In.fill_(input.data, N);
+            _In = input;
 
-            forward(
+            F.sigmoid_forward_cpu(
                 _Out.data,
                 _In.data,
                 N);
@@ -322,9 +419,13 @@
         }
 
         public Tensor backward(Tensor output) {
-            uint N = _In.numel();
+            if (output is null) {
+                throw new ArgumentNullException(nameof(output));
+            }
 
-            if (output.numel() != N) throw new InvalidOperationException();
+            uint N = output.numel();
+
+            if (_In.numel() != N) throw new InvalidOperationException();
 
             _In.zero_grad();
 
@@ -340,7 +441,7 @@
     }
 
     [DebuggerDisplay("nn.Linear ({I}, {O})")]
-    public unsafe class Linear : ILayer {
+    public unsafe class Linear : IModel {
         F.MatMul _MatMul;
 
         public readonly uint I;
@@ -370,6 +471,7 @@
             this.O = (uint)O;
 
             _Weight = new Tensor(this.O * this.I, requires_grad: true);
+
             _Bias = bias
                 ? new Tensor(this.O, requires_grad: true)
                 : null;
@@ -386,19 +488,17 @@
         }
 
         public void Dispose() {
+            _In = null;
             if (_Out != null)
                 _Out.Dispose();
             _Out = null;
-            if (_In != null)
-                _In.Dispose();
-            _In = null;
-            if (_MatMul != null)
-                _MatMul.Dispose();
-            _MatMul = null;
             if (_Bias != null)
                 _Bias.Dispose();
             if (_Weight != null)
                 _Weight.Dispose();
+            if (_MatMul != null)
+                _MatMul.Dispose();
+            _MatMul = null;
         }
 
         public IEnumerable<Tensor> parameters() {
@@ -410,23 +510,17 @@
         public void train() { }
 
         public Tensor forward(Tensor input) {
-            if (_Weight == null) throw new ObjectDisposedException(GetType().FullName);
+            if (_MatMul == null) throw new ObjectDisposedException(GetType().FullName);
+
+            if (input is null) {
+                throw new ArgumentNullException(nameof(input));
+            }
 
             uint N = input.numel();
-
-            // Dynamically create space for input and output to accommodate the batch size
 
             uint B = (N + I - 1) / I;
 
             if (B * I != N) throw new ArgumentOutOfRangeException(nameof(input));
-
-            if (_In is null) {
-                _In = new Tensor(N, requires_grad: true);
-            } else {
-                if (_In.numel() != B * I) {
-                    _In.resize(B * I);
-                }
-            }
 
             if (_Out is null) {
                 _Out = new Tensor(B * O, requires_grad: true);
@@ -436,7 +530,7 @@
                 }
             }
 
-            _In.fill_(input.data, N);
+            _In = input;
 
             _MatMul.forward(
                 _Out.data,
@@ -451,14 +545,17 @@
         }
 
         public Tensor backward(Tensor output) {
-            if (_Weight == null) throw new ObjectDisposedException(GetType().FullName);
+            if (_MatMul == null) throw new ObjectDisposedException(GetType().FullName);
+
+            if (output is null) {
+                throw new ArgumentNullException(nameof(output));
+            }
 
             uint N = output.numel();
 
             uint B = (N + O - 1) / O;
 
-            if (_Out.numel() != B * O || _In.numel() != B * I)
-                throw new ArgumentOutOfRangeException(nameof(output));
+            if (_Out.numel() != B * O || _In.numel() != B * I) throw new ArgumentOutOfRangeException(nameof(output));
 
             _In.zero_grad();
 

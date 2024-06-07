@@ -46,6 +46,8 @@
         uint _capacity;
         uint _numel;
 
+        IntPtr h_ua_data, h_ua_grad;
+
         public Tensor(uint numel, bool requires_grad = true) : base() {
             cpuMemAlloc(numel, requires_grad, out data, out grad);
         }
@@ -60,10 +62,7 @@
         }
 
         public readonly float* data;
-
         public readonly float* grad;
-
-        IntPtr h_ua_data, h_ua_grad;
 
         void cpuMemAlloc(uint numel, bool requires_grad, out float* data, out float* grad) {
             data = null; grad = null;
@@ -79,14 +78,12 @@
                 // We need to ensure that the host memory is aligned to 4K
                 if (h_ua_data != IntPtr.Zero) data = (float*)(((ulong)h_ua_data + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
                 if (h_ua_grad != IntPtr.Zero) grad = (float*)(((ulong)h_ua_grad + (ALIGNMENT - 1)) & (~(ALIGNMENT - 1)));
-
                 _numel = numel;
                 _capacity = numel;
             } catch {
-                data = null;
-                grad = null;
-                if (h_ua_grad != IntPtr.Zero) free((void*)h_ua_grad);
-                if (h_ua_data != IntPtr.Zero) free((void*)h_ua_data);
+                data = null; grad = null;
+                free((void*)h_ua_grad);
+                free((void*)h_ua_data);
                 throw;
             }
         }
@@ -94,11 +91,19 @@
         void cpuMemFree() {
             _numel = 0;
             _capacity = 0;
-            free((void*)Interlocked.Exchange(ref h_ua_data, IntPtr.Zero));
-            free((void*)Interlocked.Exchange(ref h_ua_grad, IntPtr.Zero));
+            free((void*)h_ua_data);
+            free((void*)h_ua_grad);
         }
 
-        public ulong memsize {
+        public void zero_grad() {
+            if (grad != null) {
+                kernel32.ZeroMemory(
+                    grad,
+                    numel() * sizeof(float));
+            }
+        }
+
+        public ulong numbytes {
             get {
                 ulong numbytes = 0;
                 if (h_ua_data != IntPtr.Zero) {
@@ -230,14 +235,6 @@
         public void fill_(float fill) {
             for (uint t = 0; t < numel(); t++) {
                 data[t] = fill;
-            }
-        }
-
-        public void zero_grad() {
-            if (grad != null) {
-                kernel32.ZeroMemory(
-                    grad,
-                    numel() * sizeof(float));
             }
         }
     }

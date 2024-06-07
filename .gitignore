@@ -32,3 +32,5 @@
 
 /efi
 /tests/__pycache__
+/include/WinUI/bin
+/include/WinUI/obj

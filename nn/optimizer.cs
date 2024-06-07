@@ -2,10 +2,11 @@
     using System;
     using System.Collections.Generic;
     using System.Linq;
-
+    using System.Threading.Tasks;
     using static std;
 
     public interface IOptimizer {
+        float lr { get; set; }
         uint get_num_params();
         void reset();
         void step();
@@ -16,13 +17,22 @@
     public abstract class Optimizer : IOptimizer {
         protected ulong _step = 0;
 
-        protected float _lr;
+        float _lr;
 
         protected Tensor[] _params;
 
         public Optimizer(IEnumerable<Tensor> all_params, float lr) {
             _lr = lr;
             _params = all_params.ToArray();
+        }
+
+        public float lr {
+            get {
+                return _lr;
+            }
+            set {
+                _lr = value;
+            }
         }
 
         public void zero_grad() {
@@ -67,7 +77,7 @@
                 Tensor T = _params[p];
 
                 for (int n = 0; n < T.numel(); n++) {
-                    T.data[n] -= T.grad[n] * _lr;
+                    T.data[n] -= T.grad[n] * lr;
                 }
             }
         }
@@ -80,7 +90,7 @@
         float _beta1 = 0.9f;
         float _beta2 = 0.999f;
         float _eps = 1e-8f;
-        float _weight_decay = 0.01f;
+        float _weight_decay = 1e-2f;
 
         float* m_memory;
         float* v_memory;
@@ -91,7 +101,7 @@
             float beta1 = 0.9f,
             float beta2 = 0.999f,
             float eps = 1e-8f,
-            float weight_decay = 0.01f) : base(parameters, lr) {
+            float weight_decay = 1e-2f) : base(parameters, lr) {
 
             _beta1 = beta1;
             _beta2 = beta2;
@@ -99,6 +109,8 @@
             _weight_decay = weight_decay;
             _params = parameters.ToArray();
         }
+
+        public float weight_decay { get => _weight_decay; set => _weight_decay = value; }
 
         public void Dispose() {
             free(m_memory);
@@ -132,8 +144,11 @@
             for (p = 0, i = 0; p < _params.Length; p++) {
                 Tensor T = _params[p];
 
+                // Parallel.For(0, T.numel(), (n) => {
+                // });
+
                 for (int n = 0; n < T.numel(); n++, i++) {
-                    double δf  = T.grad[n];
+                    double δf = T.grad[n];
 
                     double m = _beta1 * m_memory[i] + (1.0f - _beta1) * δf;
                     double v = _beta2 * v_memory[i] + (1.0f - _beta2) * δf * δf;
@@ -144,7 +159,7 @@
                     m_memory[i] = (float)m;
                     v_memory[i] = (float)v;
 
-                    T.data[n] -= (float)(_lr * (m_hat / (Math.Sqrt(v_hat) + _eps) - (double)_weight_decay * T.data[n]));
+                    T.data[n] -= (float)(lr * (m_hat / (Math.Sqrt(v_hat) + _eps) - (double)_weight_decay * T.data[n]));
                 }
             }
         }

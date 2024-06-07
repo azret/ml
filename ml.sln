@@ -6,6 +6,10 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "nn", "nn\nn.csproj", "{297020FC-C69B-4555-96FB-301221BC77E2}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{8D1E28FC-4EB8-4FED-BA84-DD5A7146D6CC}"
+	ProjectSection(SolutionItems) = preProject
+		tests\bin\Debug\net8.0\iris.csharp.SGD.txt = tests\bin\Debug\net8.0\iris.csharp.SGD.txt
+		tests\bin\Debug\net8.0\iris.pytorch.SGD.txt = tests\bin\Debug\net8.0\iris.pytorch.SGD.txt
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "tests", "tests\tests.csproj", "{416F4053-358D-4631-97DE-B1031B29947A}"
 EndProject

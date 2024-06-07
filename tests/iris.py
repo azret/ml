@@ -27,19 +27,19 @@ class Net(nn.Module):
     def __init__(self, input_size, hidden_size, num_classes):
         super(Net, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
-        self.id1 = nn.Identity()
-        self.relu = nn.ReLU()
         self.fc2 = nn.Linear(hidden_size, num_classes, bias=False)
-        self.id2 = nn.Identity()
-        self.sigmoid = nn.Sigmoid()
+        self.encoder = nn.Sequential(
+            self.fc1,
+            nn.Identity(),
+            nn.Tanh(),
+            nn.ReLU(),
+            self.fc2,
+            nn.Identity(),
+            nn.LeakyReLU(),
+            nn.Sigmoid());
 
     def forward(self, x):
-        out = self.fc1(x)
-        out = self.id1(out)
-        out = self.relu(out)
-        out = self.fc2(out)
-        out = self.id2(out)
-        out = self.sigmoid(out)
+        out = self.encoder(x)
         return out
 
     def get_num_params(self):

@@ -38,16 +38,18 @@ unsafe internal static class dropout {
             hidden.I,
             (float)Math.Sqrt(5));
         Dropout dropout = use_dropout ? new Dropout(g, p) : null;
+        Tanh tanh = new nn.Tanh();
         Console.WriteLine(g.randint32());
         Console.WriteLine("weight:");
         Console.WriteLine(Common.pretty_logits(hidden._Weight.data, hidden._Weight.numel(), 0xFFFFFFFF));
-        var input = Tensor.zeros(7);
+        var input = Tensor.zeros(7, requires_grad: true);
         nn.rand.normal_(input.data, input.numel(), g, 0, 1);
         Console.WriteLine(g.randint32());
         var output = hidden.forward(input);
         if (dropout != null) {
             output = dropout.forward(output);
         }
+        output = tanh.forward(output);
         Console.WriteLine("output:");
         Console.WriteLine(Common.pretty_logits(output.data, output.numel(), 0xFFFFFFFF));
         Console.WriteLine(g.randint32());
@@ -59,6 +61,7 @@ unsafe internal static class dropout {
             target.data);
         Console.WriteLine("loss:");
         Console.WriteLine($"[{loss:f4}]");
+        output = tanh.backward(output);
         if (dropout != null) {
             output = dropout.backward(output);
         }

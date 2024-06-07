@@ -5,8 +5,6 @@ using System.Reflection;
 using System.Runtime.Intrinsics.X86;
 using System.Text;
 
-using nn;
-
 internal unsafe class Run {
     static string GetProcessorManufacturerId() {
         if (!X86Base.IsSupported) return null;
@@ -41,13 +39,13 @@ internal unsafe class Run {
 
     static int Main() {
         Console.WriteLine("> cpu: vendor: " + GetProcessorManufacturerId());
-        Console.WriteLine("> cpu: x64: " + System.Runtime.Intrinsics.X86.X86Base.X64.IsSupported);
-        Console.WriteLine("> cpu: sse: " + System.Runtime.Intrinsics.X86.Sse.IsSupported);
-        Console.WriteLine("> cpu: sse2: " + System.Runtime.Intrinsics.X86.Sse2.IsSupported);
-        Console.WriteLine("> cpu: sse3: " + System.Runtime.Intrinsics.X86.Sse3.IsSupported);
-        Console.WriteLine("> cpu: avx: " + System.Runtime.Intrinsics.X86.Avx.IsSupported);
-        Console.WriteLine("> cpu: avx2: " + System.Runtime.Intrinsics.X86.Avx2.IsSupported);
-        Console.WriteLine("> cpu: avx512f: " + System.Runtime.Intrinsics.X86.Avx512F.IsSupported);
+        Console.WriteLine("> cpu: x64: " + X86Base.X64.IsSupported);
+        Console.WriteLine("> cpu: sse: " + Sse.IsSupported);
+        Console.WriteLine("> cpu: sse2: " + Sse2.IsSupported);
+        Console.WriteLine("> cpu: sse3: " + Sse3.IsSupported);
+        Console.WriteLine("> cpu: avx: " + Avx.IsSupported);
+        Console.WriteLine("> cpu: avx2: " + Avx2.IsSupported);
+        Console.WriteLine("> cpu: avx512f: " + Avx512F.IsSupported);
 
         Console.WriteLine();
         Console.WriteLine("> exe: " + Assembly.GetExecutingAssembly().Location);
@@ -119,12 +117,12 @@ internal unsafe class Run {
         Console.WriteLine($"test_sgd w/ maxDegreeOfParallelism = {maxDegreeOfParallelism}, naive = {naive}");
 
         var OUT = File.CreateText(rootPath + "iris.csharp.SGD.txt");
-        iris.test_iris(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-4f, batch_size: 40, maxDegreeOfParallelism: maxDegreeOfParallelism, naive: naive);
+        iris.test_iris(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-6f, batch_size: 40, maxDegreeOfParallelism: maxDegreeOfParallelism, naive: naive);
         OUT.Flush();
         OUT.Close();
 
         OUT = File.CreateText(rootPath + "iris.pytorch.SGD.txt");
-        OUT.Write(runpy(rootPath + "iris.py --batch_size 40 --optim SGD --lr 1e-4 --loss MSELoss"));
+        OUT.Write(runpy(rootPath + "iris.py --batch_size 40 --optim SGD --lr 1e-6 --loss MSELoss"));
         OUT.Flush();
         OUT.Close();
 
@@ -135,11 +133,13 @@ internal unsafe class Run {
             var py_lines = File.ReadAllLines(rootPath + "iris.pytorch.SGD.txt");
             var cs_lines = File.ReadAllLines(rootPath + "iris.csharp.SGD.txt");
             for (int i = 0; i < py_lines.Length; i++) {
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine("\nEXPECTED: " + py_lines[i]);
-                Console.WriteLine();
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("ACTUAL: " + cs_lines[i]);
+                if (py_lines[i] != cs_lines[i]) {
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    Console.WriteLine("\nEXPECTED: " + py_lines[i]);
+                    Console.WriteLine();
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("ACTUAL: " + cs_lines[i]);
+                }
             }
             exitCode = 1;
         } else {

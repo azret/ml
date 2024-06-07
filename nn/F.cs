@@ -99,9 +99,9 @@
 
             if (p < 0 || p > 1) throw new ArgumentOutOfRangeException(nameof(p), p, "dropout probability has to be between 0 and 1");
 
+            // during eval dropout layer is pass-through
             if ((training.HasValue
                         && !training.Value) || p == 0 || N == 0) {
-                // pass-through
                 for (int i = 0; i < N; i++) {
                     _Out[i] = _In[i];
                     _Mask[i] = 1f;
@@ -109,8 +109,8 @@
                 return;
             }
 
+            // 100% droput probability
             if (p == 1) {
-                // drop-all
                 for (int i = 0; i < N; i++) {
                     _Out[i] = 0f;
                     _Mask[i] = 0f;
@@ -118,18 +118,17 @@
                 return;
             }
 
-            double scale = p == 1d ? 0d : (float)(1d / (1d - p));
-
             // Inline MCG(1132489760, 2^31 -1) [L'Ecuyer99]
             ulong state_ = g.randint32() % 0x000000007FFFFFFF;
+            float scale = p == 1d ? 0f : (1f / (1f - (float)p));
             for (int i = 0; i < N; i++) {
-                double x = (double)(state_ % 0x000000007FFFFFFF) / 0x7FFFFFFF;
+                double sample = (double)(state_ % 0x000000007FFFFFFF) / 0x7FFFFFFF;
                 unchecked {
                     state_ = (1132489760 * state_) % 0x000000007FFFFFFF;
                 }
-                if (x < 1d - p) {
+                if (sample < 1d - p) {
                     _Mask[i] = 1f;
-                    _Out[i] = _In[i] * (float)scale;
+                    _Out[i] = _In[i] * scale;
                 } else {
                     _Mask[i] = 0f;
                     _Out[i] = 0f;
@@ -146,10 +145,39 @@
             uint N,
             double p) {
 
-            double scale = p == 1d ? 0d : (float)(1d / (1d - p));
+            if (p < 0 || p > 1) throw new ArgumentOutOfRangeException(nameof(p), p, "dropout probability has to be between 0 and 1");
+
+            float scale = p == 1d ? 0f : (1f / (1f - (float)p));
+            for (int n = 0; n < N; n++) {
+                d_In[n] = d_Out[n] * _Mask[n] * scale;
+            }
+        }
+
+        public static unsafe void tanh_forward_cpu(
+            float* _Out,       /* [N] */
+            float* _In,        /* [N] */
+            uint N) {
 
             for (int n = 0; n < N; n++) {
-                d_In[n] = d_Out[n] * _Mask[n] * (float)scale;
+                var x = _In[n];
+                float pos = (float)Math.Exp(x), neg = (float)Math.Exp(-x);
+                var y = (pos - neg) / (pos + neg);
+                _Out[n] = y;
+            }
+        }
+
+        public static unsafe void tanh_backward_cpu(
+            float* _Out,       /* [N] */
+            float* d_Out,       /* [N] */
+            float* _In,        /* [N] */
+            float* d_In,        /* [N] */
+            uint N) {
+
+            for (int n = 0; n < N; n++) {
+                var x = _In[n];
+                float pos = (float)Math.Exp(x), neg = (float)Math.Exp(-x);
+                var y = (pos - neg) / (pos + neg);
+                d_In[n] += (1 - y * y) * d_Out[n];
             }
         }
 
@@ -159,10 +187,10 @@
             uint N) {
 
             for (int n = 0; n < N; n++) {
-                var y = _In[n];
-                if (y <= 0)
-                    y = 0;
-                _Out[n] = y;
+                var x = _In[n];
+                if (x < 0)
+                    x = 0;
+                _Out[n] = x;
             }
         }
 
@@ -174,9 +202,37 @@
             uint N) {
 
             for (int n = 0; n < N; n++) {
-                var y = _In[n];
-                if (y > 0)
+                var x = _In[n];
+                if (x > 0)
                     d_In[n] += d_Out[n];
+            }
+        }
+
+        public static unsafe void leaky_relu_forward_cpu(
+            float* _Out,       /* [N] */
+            float* _In,        /* [N] */
+            uint N,
+            double negval) {
+
+            for (int n = 0; n < N; n++) {
+                var x = _In[n];
+                if (x < 0)
+                    x *= (float)negval;
+                _Out[n] = x;
+            }
+        }
+
+        public static unsafe void leaky_relu_backward_cpu(
+            float* _Out,       /* [N] */
+            float* d_Out,       /* [N] */
+            float* _In,        /* [N] */
+            float* d_In,        /* [N] */
+            uint N,
+            double negval) {
+
+            for (int n = 0; n < N; n++) {
+                var x = _In[n];
+                d_In[n] += (x > 0) ? d_Out[n] : d_Out[n] * (float)negval;
             }
         }
 
