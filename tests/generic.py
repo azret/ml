@@ -25,7 +25,7 @@ def eval_net(net, W, input):
             print("bias.grad:")
             print(pretty_logits(W.bias.grad, 0xFFFFFFFF))
 
-def test_net(optim, lr, bias, activation, momentum, weight_decay, decimals):
+def test_net(optim, loss, lr, bias, activation, momentum, weight_decay, decimals):
     I = 5
     H = 7
     O = 3
@@ -50,7 +50,11 @@ def test_net(optim, lr, bias, activation, momentum, weight_decay, decimals):
     elif activation == "Tanh":
         F_act = nn.Tanh()
 
-    net = nn.Sequential(W_hidden, F_act, W_output);
+    net = nn.Sequential(
+        W_hidden,
+        F_act,
+        W_output,
+        nn.Sigmoid() if loss == "BCELoss" else nn.Identity());
 
     sample = torch.ones(B, I)
     target = torch.ones(B, O)
@@ -65,12 +69,15 @@ def test_net(optim, lr, bias, activation, momentum, weight_decay, decimals):
     for step in range(1000):
         net.train()
         logits = net(sample)
-        loss = F.mse_loss(logits, target)
+        if loss == "MSELoss":
+            diff = F.mse_loss(logits, target)
+        elif loss == "BCELoss":
+            diff = F.binary_cross_entropy(logits, target)
         optimizer.zero_grad()
-        loss.backward()
+        diff.backward()
         optimizer.step()
         if step % 100 == 0:
-            print(f"[{step}]: {pretty_logits(loss, decimals=decimals)}")
+            print(f"[{step}]: {pretty_logits(diff, decimals=decimals)}")
 
     eval_net(net, W_output, sample)
     print("</test_net>")
@@ -85,26 +92,28 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--bias", type=str, default="yes")
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--momentum", type=float, default=1e-1)
+    parser.add_argument("--m", type=float, default=1e-1)
     parser.add_argument("--weight_decay", type=float, default=1e-1)
-    parser.add_argument("--maxDegreeOfParallelism", type=int, default=-1)
-    parser.add_argument("--activation", type=str, default="Identity")
-    parser.add_argument("--optim", type=str, default="SGD")
-    parser.add_argument("--decimals", type=int, default=4)
-
+    parser.add_argument("--a", type=str, default="Identity")
+    parser.add_argument("--o", type=str, default="SGD")
+    parser.add_argument("--d", type=int, default=4)
+    parser.add_argument("--loss", type=str, default="MSELoss")
+    
     args = parser.parse_args()
 
-    assert args.activation in { "Identity", "ReLU", "Sigmoid", "Tanh", "LeakyReLU", "Dropout" }
-    assert args.optim in { "SGD", "AdamW" }
+    assert args.a in { "Identity", "ReLU", "Sigmoid", "Tanh", "LeakyReLU", "Dropout" }
+    assert args.o in { "SGD", "AdamW" }
+    assert args.loss in { "MSELoss", "BCELoss" }
     assert args.bias in { "yes", "no" }
     assert 0 <= args.lr <= 1
-    assert 0 <= args.momentum <= 1
+    assert 0 <= args.m <= 1
     assert 0 <= args.weight_decay <= 1
 
-    test_net(optim = args.optim,
+    test_net(optim = args.o,
+             loss=args.loss,
              lr = args.lr,
              bias = True if args.bias == "yes" else False,
-             activation = args.activation,
-             momentum = args.momentum,
+             activation = args.a,
+             momentum = args.m,
              weight_decay = args.weight_decay,
-             decimals=args.decimals);
+             decimals=args.d);

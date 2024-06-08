@@ -1,7 +1,26 @@
 ﻿namespace nn {
     using System;
 
-    public static class init {
+    public unsafe static class init {
+        public static void reset_weights(Linear W, string nonlinearity, IRNG _RNG_) {
+            kaiming_uniform_(
+                W._Weight.data,
+                W._Weight.numel(),
+                _RNG_,
+                W.I,
+                (float)Math.Sqrt(5),
+                nonlinearity);
+
+            if (W._Bias != null) {
+                nn.rand.uniform_(
+                    W._Bias.data,
+                    W._Bias.numel(),
+                    _RNG_,
+                    -(float)(1.0 / Math.Sqrt(W.I)),
+                    (float)(1.0 / Math.Sqrt(W.I)));
+            }
+        }
+
         public static double calculate_gain(string nonlinearity, double? a = null) {
             switch (nonlinearity) {
                 case "linear":

@@ -33,9 +33,6 @@
     <None Update="iris.csv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="iris.py">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Update="generic.py">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

@@ -1,19 +1,22 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Configuration;
+using System.Diagnostics;
 using System.Drawing;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Threading;
 
 namespace Microsoft.Win32 {
+    [SupportedOSPlatform("windows")]
     unsafe public class WinUI : IDisposable, IWinUI {
         public static ITheme GetTheme()
         {
             string themeName = ConfigurationManager.AppSettings["Theme"];
             if (string.IsNullOrWhiteSpace(themeName))
             {
-                return new Black();
+                return new Dark();
             }
             switch (themeName)
             {
@@ -86,6 +89,7 @@ namespace Microsoft.Win32 {
                 return _defaultWindowProc;
             }
         }
+
         public WinUI(IWinUIController controller, string text, ITheme theme) {
             _controller = controller;
             _theme = theme;
@@ -104,22 +108,44 @@ namespace Microsoft.Win32 {
             // }
             // _icon = Icon.FromHandle(bmp.GetHicon());
             // bmp.Dispose();
+
+            if (!Win32.User32.SetProcessDpiAwarenessContext(User32.DpiAwarenessContext.PerMonitorAwareV2)) {
+                Debug.WriteLine("WARNING: SetProcessDpiAwarenessContext failed.");
+            }
+
+            _lpfnWndProcPtr = LocalWndProc;
+            IntPtr lpfnWndProcPtr = Marshal.GetFunctionPointerForDelegate(_lpfnWndProcPtr);
+
+            // if (User32.SetWindowLongPtr(_hWnd, (int)User32.WindowLongFlags.GWL_WNDPROC, lpfnWndProcPtr) == IntPtr.Zero) {
+            //     var lastWin32Error = Marshal.GetLastWin32Error();
+            //     User32.ShowWindow(_hWnd, ShowWindowCommands.Hide);
+            //     User32.DestroyWindow(_hWnd);
+            //     throw new Win32Exception(lastWin32Error);
+            // }
+
             _lpwcx = new WNDCLASSEX();
             _lpwcx.cbSize = Marshal.SizeOf(typeof(WNDCLASSEX));
             _lpwcx.hInstance = User32.GetModuleHandle(null);
              _lpwcx.hIcon = _icon.Handle;
-            _lpwcx.style = ClassStyles.HorizontalRedraw | ClassStyles.VerticalRedraw | ClassStyles.OwnDC ;
+            _lpwcx.style = ClassStyles.HorizontalRedraw | ClassStyles.VerticalRedraw | ClassStyles.OwnDC;
             _lpwcx.cbClsExtra = 0;
             _lpwcx.cbWndExtra = 0;
             _lpwcx.hCursor = User32.LoadCursor(IntPtr.Zero, (int)Constants.IDC_ARROW);
             _lpwcx.hbrBackground = User32.CreateSolidBrush(ColorTranslator.ToWin32(_theme.GetColor(ThemeColor.Background)));
-            _lpwcx.lpfnWndProc = DefaultWindowProc;
+            _lpwcx.lpfnWndProc = lpfnWndProcPtr;
             _lpwcx.lpszClassName = "W_" + Guid.NewGuid().ToString("N");
             if (User32.RegisterClassExA(ref _lpwcx) == 0) {
                 if (1410 != Marshal.GetLastWin32Error()) {
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 }
             }
+            int width = _controller.DefaultWidth >= 0 ? _controller.DefaultWidth : 720;
+            int height = _controller.DefaultHeight >= 0 ? _controller.DefaultHeight : (int)(width * (3f / 5f));
+            const int SM_CXFULLSCREEN = 16;
+            const int SM_CYFULLSCREEN = 17;
+            int left = User32.GetSystemMetrics(SM_CXFULLSCREEN) / 2 - width / 2;
+            int top = User32.GetSystemMetrics(SM_CYFULLSCREEN) / 2 - height / 2;
+            const int CW_USEDEFAULT = unchecked((int)0x80000000);
             _hWnd = User32.CreateWindowExA(
                     WindowStylesEx.WS_EX_WINDOWEDGE |
                     WindowStylesEx.WS_EX_LEFT,
@@ -130,10 +156,10 @@ namespace Microsoft.Win32 {
                     WindowStyles.WS_SIZEFRAME |
                     WindowStyles.WS_MINIMIZEBOX |
                     WindowStyles.WS_MAXIMIZEBOX,
-                160,
-                230,
-                720,
-                (int)(720 * (3f / 5f)),
+                CW_USEDEFAULT,
+                CW_USEDEFAULT,
+                width,
+                height,
                 IntPtr.Zero,
                 IntPtr.Zero,
                 _lpwcx.hInstance,
@@ -144,39 +170,34 @@ namespace Microsoft.Win32 {
 
             const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
             var attribute = DWMWA_WINDOW_CORNER_PREFERENCE;
-            int preference = (int)DWM_WINDOW_CORNER_PREFERENCE.DWMWCP_ROUND;
+            int preference = (int)DWM_WINDOW_CORNER_PREFERENCE.DWMWCP_DEFAULT;
             var res = DwmSetWindowAttribute(_hWnd, attribute, &preference, sizeof(uint));
 
-            // attribute = (int)DWMWINDOWATTRIBUTE.DWMWA_NCRENDERING_POLICY;
-            // preference = (int)DWMNCRENDERINGPOLICY.DWMNCRP_DISABLED;
-            // res = DwmSetWindowAttribute(_hWnd, attribute, &preference, sizeof(uint));
+            preference = (int)DWMNCRENDERINGPOLICY.DWMNCRP_ENABLED;
+            DwmSetWindowAttribute(_hWnd,
+                (int)DWMWINDOWATTRIBUTE.DWMWA_NCRENDERING_POLICY, &preference, sizeof(uint));
 
-            // attribute = (int)DWMWINDOWATTRIBUTE.DWMWA_ALLOW_NCPAINT;
-            // preference = (int)0;
-            // res = DwmSetWindowAttribute(_hWnd, attribute, &preference, sizeof(uint));
+            preference = (int)0;
+            DwmSetWindowAttribute(_hWnd,
+                (int)DWMWINDOWATTRIBUTE.DWMWA_ALLOW_NCPAINT, &preference, sizeof(uint));
 
-            attribute = (int)DWMWINDOWATTRIBUTE.DWMWA_BORDER_COLOR;
-            preference = (int)0x121212;
-            res = DwmSetWindowAttribute(_hWnd, attribute, &preference, sizeof(uint));
-
+            // 
+            // attribute = (int)DWMWINDOWATTRIBUTE.DWMWA_BORDER_COLOR;
+            int color = 0x121212; 
+            byte R = theme.GetColor(ThemeColor.DarkLine).R;
+            byte G = theme.GetColor(ThemeColor.DarkLine).G;
+            byte B = theme.GetColor(ThemeColor.DarkLine).B;
+            color = (R << 16) + (G << 8) + (B);
+            DwmSetWindowAttribute(_hWnd, (int)DWMWINDOWATTRIBUTE.DWMWA_BORDER_COLOR, &color, sizeof(uint));
+            // 
             const int DWMWA_CAPTION_COLOR = 35;
-            attribute = DWMWA_CAPTION_COLOR;
-            // byte R = theme.GetColor(ThemeColor.Background).R;
-            // byte G = theme.GetColor(ThemeColor.Background).G;
-            // byte B = theme.GetColor(ThemeColor.Background).B;
-            // preference = (R << 16) + (G << 8) + (B);
-            preference = 0x2E2E2E;
-            res = DwmSetWindowAttribute(_hWnd, attribute, &preference, sizeof(uint));
-
-
-            _lpfnWndProcPtr = LocalWndProc;
-            IntPtr lpfnWndProcPtr = Marshal.GetFunctionPointerForDelegate(_lpfnWndProcPtr);
-            if (User32.SetWindowLongPtr(_hWnd, (int)User32.WindowLongFlags.GWL_WNDPROC, lpfnWndProcPtr) == IntPtr.Zero) {
-                var lastWin32Error = Marshal.GetLastWin32Error();
-                User32.ShowWindow(_hWnd, ShowWindowCommands.Hide);
-                User32.DestroyWindow(_hWnd);
-                throw new Win32Exception(lastWin32Error);
-            }
+            // attribute = DWMWA_CAPTION_COLOR;
+            color = 0x2E2E2E;
+            R = theme.GetColor(ThemeColor.Background).R;
+            G = theme.GetColor(ThemeColor.Background).G;
+            B = theme.GetColor(ThemeColor.Background).B;
+            color = (R << 16) + (G << 8) + (B);
+            DwmSetWindowAttribute(_hWnd, DWMWA_CAPTION_COLOR, &color, sizeof(uint));
         }
 
         void Dispose(bool disposing) {
@@ -353,112 +374,36 @@ namespace Microsoft.Win32 {
         }
 
         [DllImport("dwmapi.dll")]
-        private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, IntPtr pvAttribute, int cbAttribute);
+        private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, void* pvAttribute, int cbAttribute);
 
         [DllImport("dwmapi.dll")]
-        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, int* pvAttribute, int cbAttribute);
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, void* pvAttribute, int cbAttribute);
 
+        [StructLayout(LayoutKind.Sequential)]
+        public struct _MARGINS {
+            public int cxLeftWidth;
+            public int cxRightWidth;
+            public int cyTopHeight;
+            public int cyBottomHeight;
+        };
+
+        [DllImport("dwmapi.dll", EntryPoint = "DwmExtendFrameIntoClientArea")]
+        public static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, [In] ref _MARGINS pMarInset);
+
+        [DllImport("dwmapi.dll")]
+        public static extern IntPtr DwmDefWindowProc(IntPtr hWnd, WM uMsg, IntPtr wParam, IntPtr lParam, void* plResult);
 
         IntPtr LocalWndProc(IntPtr hWnd, WM msg, IntPtr wParam, IntPtr lParam) {
-            switch ((WM)msg) {
-                case WM.CREATE:
-                     
-                    break;
+            switch (msg) {
                 case WM.SHOWWINDOW:
                     _controller?.OnShow(this);
                     break;
                 case WM.CLOSE:
                     _controller?.OnClose(this);
-                    break; 
+                    break;
                 case WM.PAINT:
                     Paint();
                     return IntPtr.Zero;
-#if NCPAINT
-                case WM.NCACTIVATE:
-                    InvalidateAll();
-                    break;
-                case WM.ACTIVATE:
-                    InvalidateAll();
-                    break;
-
-                case WM.NCHITTEST: {
-                    RECT rect;
-                    User32.GetWindowRect(hWnd, out rect);
-                
-                    int _SM_CYSIZEFRAME = GetFrameSize();
-                    int _SM_CYCAPTION = GetCaptionSize();
-                
-                    int x = lParam.ToInt32() & 0xffff;
-                    int y = lParam.ToInt32() >> 16;
-                
-                    const int HTCAPTION = 2;
-                    const int HTLEFT = 10;
-                    const int HTCLIENT = 1;
-                    const int HTRIGHT = 11;
-                    const int HTTOP = 12;
-                    const int HTTOPLEFT = 13;
-                    const int HTTOPRIGHT = 14;
-                    const int HTBOTTOM = 15;
-                    const int HTBOTTOMLEFT = 16;
-                    const int HTBOTTOMRIGHT = 17;
-                
-                    if (x <= rect.Left + _SM_CYSIZEFRAME && y <= rect.Top + _SM_CYSIZEFRAME) {
-                
-                        return (IntPtr)HTTOPLEFT;
-                
-                    } else if (x >= rect.Right - _SM_CYSIZEFRAME && y <= rect.Top + _SM_CYSIZEFRAME) {
-                
-                        return (IntPtr)HTTOPRIGHT;
-                
-                    } else if (x <= rect.Left + _SM_CYSIZEFRAME && y >= rect.Bottom - _SM_CYSIZEFRAME) {
-                
-                        return (IntPtr)HTBOTTOMLEFT;
-                
-                    } else if (x >= rect.Right - _SM_CYSIZEFRAME && y >= rect.Bottom - _SM_CYSIZEFRAME) {
-                
-                        return (IntPtr)HTBOTTOMRIGHT;
-                
-                    } else if (x <= rect.Left + _SM_CYSIZEFRAME) {
-                
-                        return (IntPtr)HTLEFT;
-                
-                    } else if (x >= rect.Right - _SM_CYSIZEFRAME) {
-                
-                        return (IntPtr)HTRIGHT;
-                
-                    } else if (y <= rect.Top + _SM_CYSIZEFRAME) {
-                
-                        return (IntPtr)HTTOP;
-                
-                    } else if (y >= rect.Bottom - _SM_CYSIZEFRAME) {
-                
-                        return (IntPtr)HTBOTTOM;
-                
-                    }
-                    return (IntPtr)HTCAPTION;
-                }
-
-                case WM.NCCALCSIZE: {
-                        if (wParam == IntPtr.Zero) return IntPtr.Zero;
-                
-                        int _SM_CYSIZEFRAME = GetFrameSize();
-                        int _SM_CYCAPTION = GetCaptionSize();
-                
-                        IntPtr WVR_REDRAW = (IntPtr)0x0300;
-                        RECT rect;
-                        User32.GetWindowRect(hWnd, out rect);
-                        NCCALCSIZE_PARAMS* ncParams = (NCCALCSIZE_PARAMS*)lParam;
-                        ncParams->rgrc0.Top = rect.Top + _SM_CYCAPTION;
-                        ncParams->rgrc0.Left = rect.Left + _SM_CYSIZEFRAME;
-                        ncParams->rgrc0.Bottom = rect.Bottom - _SM_CYSIZEFRAME;
-                        ncParams->rgrc0.Right = rect.Right - _SM_CYSIZEFRAME;
-                        return WVR_REDRAW;
-                    }
-
-                case WM.NCPAINT:
-                    return WmNcPaint(hWnd, msg, wParam, lParam);
-#endif
-
                 case WM.WINMM:
                     User32.GetClientRect(hWnd, out RECT lprctw);
                     User32.InvalidateRect(hWnd, ref lprctw, false);
@@ -470,20 +415,85 @@ namespace Microsoft.Win32 {
                     Dispose();
                     User32.PostQuitMessage(0);
                     return IntPtr.Zero;
+
+                case WM.NCCALCSIZE:
+                    if (wParam == IntPtr.Zero) {
+                        break;
+                    }
+
+                    if (lParam != IntPtr.Zero && wParam == IntPtr.Zero) {
+                        RECT rcWindow;
+                        User32.GetWindowRect(hWnd, out rcWindow);
+                        const int SM_CYCAPTION = 4;
+                        var _C_Y_CAPTION = User32.GetSystemMetrics(SM_CYCAPTION);
+                        const int SM_CXSIZEFRAME = 32;
+                        const int SM_CYSIZEFRAME = 33;
+                        var _C_X_SIZEFRAME = User32.GetSystemMetrics(SM_CXSIZEFRAME);
+                        var _C_Y_SIZEFRAME = User32.GetSystemMetrics(SM_CYSIZEFRAME);
+
+                        // NCCALCSIZE_PARAMS* ncParams = (NCCALCSIZE_PARAMS*)lParam;
+                        // ncParams->rgrc0.Top += _C_Y_CAPTION + _C_Y_SIZEFRAME + _C_Y_SIZEFRAME + _C_Y_SIZEFRAME + _C_Y_SIZEFRAME;
+                        // ncParams->rgrc0.Left += _C_X_SIZEFRAME;
+                        // ncParams->rgrc0.Right -= _C_X_SIZEFRAME;
+                        // ncParams->rgrc0.Bottom -= _C_Y_SIZEFRAME;
+
+                        var res = User32.DefWindowProc(hWnd, msg, wParam, lParam);
+
+                        const int WVR_REDRAW = 0x0300;
+                        const int WVR_VALIDRECTS = 0x0400;
+
+                        return res; // WVR_REDRAW | WVR_VALIDRECTS; //  WVR_REDRAW | WVR_VALIDRECTS;
+                    }
+
+                    break;
+
+                case WM.CREATE: {
+                        const int SWP_FRAMECHANGED = 0x0020;
+                        RECT rcWindow;
+                        User32.GetWindowRect(hWnd, out rcWindow);
+                        User32.SetWindowPos(hWnd,
+                                     IntPtr.Zero,
+                                     rcWindow.Left,
+                                     rcWindow.Top,
+                                     rcWindow.Width,
+                                     rcWindow.Height,
+                                     SWP_FRAMECHANGED);
+                    }
+                    break;
+
+                case WM.DWMCOMPOSITIONCHANGED:
+                case WM.ACTIVATE:
+                    _MARGINS margins;
+                    margins.cxLeftWidth = 0;
+                    margins.cxRightWidth = 0;
+                    margins.cyBottomHeight = 0;
+                    margins.cyTopHeight = 0;
+                    DwmExtendFrameIntoClientArea(hWnd, ref margins);
+                    break;
+
+                case WM.NCHITTEST: {
+                        var res = User32.DefWindowProc(hWnd, msg, wParam, lParam);
+
+                        const int HTCAPTION = 2;
+                        const int HTLEFT = 10;
+                        const int HTCLIENT = 1;
+                        const int HTRIGHT = 11;
+                        const int HTTOP = 12;
+                        const int HTTOPLEFT = 13;
+                        const int HTTOPRIGHT = 14;
+                        const int HTBOTTOM = 15;
+                        const int HTBOTTOMLEFT = 16;
+                        const int HTBOTTOMRIGHT = 17;
+
+                        if (res == HTCLIENT) {
+                            res = HTCAPTION;
+                        }
+
+                        return res;
+                    }
             }
+
             return User32.DefWindowProc(hWnd, (WM)msg, wParam, lParam);
-        }
-
-        private static int GetFrameSize() {
-            const int SM_CYSIZEFRAME = 33;
-            int _SM_CYSIZEFRAME = User32.GetSystemMetrics(SM_CYSIZEFRAME);
-            return _SM_CYSIZEFRAME;
-        }
-
-        private static int GetCaptionSize() {
-            const int SM_CYCAPTION = 4;
-            int _SM_CYCAPTION = User32.GetSystemMetrics(SM_CYCAPTION);
-            return _SM_CYCAPTION * 2 - GetFrameSize();
         }
 
         public IntPtr Handle {
@@ -496,6 +506,7 @@ namespace Microsoft.Win32 {
         }
 
         bool IWinUI.IsHandleAllocated { get => _hWnd != IntPtr.Zero; }
+
         ITheme IWinUI.Theme { get => _theme; }
 
         public void Show() {
@@ -555,133 +566,20 @@ namespace Microsoft.Win32 {
               uint uType,
               uint uState);
 
-        IntPtr WmNcPaint(IntPtr hWnd, WM msg, IntPtr wParam, IntPtr lParam) {
-            // User32.DefWindowProc(hWnd, msg, wParam, lParam);
-
-            // User32.GetWindowRect(this.Handle, out RECT rect);
-            // 
-            // IntPtr region = IntPtr.Zero;
-            // if (wParam == (IntPtr)1 || IntPtr.Zero == wParam) {
-            //     region = CreateRectRgn(rect.Left, rect.Top, rect.Right, rect.Bottom);
-            // } else {
-            //     IntPtr copy = CreateRectRgn(0, 0, 0, 0);
-            //     if (CombineRgn(copy, wParam, IntPtr.Zero, RGN_COPY) != 0) {
-            //         region = copy;
-            //     } else {
-            //         User32.DeleteObject(copy);
-            //     }
-            // }
-            // 
-            // IntPtr hdc;
-            // hdc = User32.GetDCEx(hWnd, IntPtr.Zero, (DeviceContextValues.DCX_WINDOW | DeviceContextValues.DCX_INTERSECTRGN));
-            // 
-            // using (Graphics g = Graphics.FromHdc(hdc)) {
-            //     // g.SetClip(clip, CombineMode.Exclude);
-            // 
-            //     g.FillRectangle(Brushes.SeaGreen, 0, 0,
-            //         rect.Width, rect.Height);
-            // }
-            // 
-            // User32.ReleaseDC(hWnd, hdc);
-
-            int w;
-             int h;
-             Rectangle clip;
-             IntPtr hdc;
-
-             User32.GetClientRect(this.Handle, out RECT clientRect);
-             User32.GetWindowRect(this.Handle, out RECT windowRect);
-
-             w = windowRect.Right - windowRect.Left;
-             h = windowRect.Bottom - windowRect.Top;
-
-             clip = new Rectangle(
-                 clientRect.Left,
-                 clientRect.Top,
-                 clientRect.Right,
-                 clientRect.Bottom);
-
-             hdc = User32.GetWindowDC(this.Handle);
-             // 
-             using (Graphics g = Graphics.FromHdc(hdc)) {
-                // g.SetClip(clip, CombineMode.Exclude);
-
-                int _SM_CYSIZEFRAME = GetFrameSize();
-                int _SM_CYCAPTION = GetCaptionSize();
-
-                POINT pt = new POINT();
-                pt.x = windowRect.Left;
-                pt.Y = windowRect.Top;
-
-                MapWindowPoints(IntPtr.Zero, hWnd, &pt, 1);
-
-                Brush ncbrush = new SolidBrush(Color.FromArgb(12, 12, 12));
-
-                g.FillRectangle(ncbrush,
-                    windowRect.Width - _SM_CYSIZEFRAME,
-                    0,
-                    _SM_CYSIZEFRAME,
-                    windowRect.Height);
-
-                g.FillRectangle(ncbrush,
-                    0,
-                    windowRect.Height - _SM_CYSIZEFRAME,
-                    windowRect.Width,
-                    _SM_CYSIZEFRAME * 5);
-
-                g.FillRectangle(ncbrush,
-                    0,
-                    windowRect.Height - _SM_CYSIZEFRAME,
-                    windowRect.Width,
-                    _SM_CYSIZEFRAME);
-
-                g.FillRectangle(ncbrush,
-                    0,
-                    0,
-                    _SM_CYSIZEFRAME,
-                    windowRect.Height);
-
-                ncbrush.Dispose();
-
-                ncbrush = new SolidBrush(Color.FromArgb(0x2E, 0x2E, 0x2E));
-
-                g.FillRectangle(Brushes.DarkRed,
-                    windowRect.Width - _SM_CYCAPTION,
-                    0,
-                    _SM_CYCAPTION,
-                    _SM_CYCAPTION);
-
-                g.FillRectangle(ncbrush,
-                    0,
-                    0,
-                    windowRect.Width,
-                    _SM_CYCAPTION);
-
-                ncbrush.Dispose();
-
-            }
-            // WM_NCCALCSIZE 
-            User32.ReleaseDC(this.Handle, hdc);
-             return IntPtr.Zero;
-
-             return User32.DefWindowProc(hWnd, msg, wParam, lParam);
-        }
-
         void Paint() {
-            User32.GetClientRect(
-                _hWnd,
-                out RECT lprct);
-
-            if (lprct.Width <= 0 || lprct.Height <= 0) {
-                return;
-            }
-
+            // User32.GetClientRect(
+            //     _hWnd,
+            //     out RECT lprct);
+            // 
+            // if (lprct.Width <= 0 || lprct.Height <= 0) {
+            //     return;
+            // }
             IntPtr hdc = User32.BeginPaint(_hWnd, out PAINTSTRUCT ps);
             try {
                 Graphics hdcGraphics = Graphics.FromHdc(hdc);
                 try {
                     DrawClientArea(
-                        lprct,
+                        ps.rcPaint,
                         hdcGraphics);
                 } finally {
                     hdcGraphics.Dispose();
@@ -692,12 +590,13 @@ namespace Microsoft.Win32 {
         }
 
         void DrawClientArea(RECT lprct, Graphics hdcGraphics) {
+            if (lprct.Width <= 0 || lprct.Height <= 0) return;
             Bitmap hMemBitmap = new Bitmap(
                 lprct.Width, lprct.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
             try {
                 RectangleF rectF = new RectangleF(
-                    0,
-                    0,
+                    lprct.Left,
+                    lprct.Top,
                     lprct.Width,
                     lprct.Height);
                 Graphics hdcBitmap = Graphics.FromImage(hMemBitmap);

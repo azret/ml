@@ -463,7 +463,6 @@
             int I,
             int O,
             bool bias = true,
-            int maxDegreeOfParallelism = -1,
             Kernel kernel = Kernel.Default) {
 
             if (I <= 0 || I >= short.MaxValue / 2) {
@@ -484,19 +483,19 @@
 
             switch (kernel) {
                 case Kernel.Naive:
-                    _MatMul = new nn.F.MatMul(maxDegreeOfParallelism);
+                    _MatMul = new nn.F.MatMul(0);
                     break;
                 case Kernel.AVX2:
                     if (System.Runtime.Intrinsics.X86.Avx2.IsSupported) {
                         throw new InvalidProgramException("AVX2 is not supported.");
                     }
-                    _MatMul = new nn.CPU.MatMulAVX2(maxDegreeOfParallelism);
+                    _MatMul = new nn.CPU.MatMulAVX2(0);
                     break;
                 case Kernel.Default:
                     if (System.Runtime.Intrinsics.X86.Avx2.IsSupported) {
-                        _MatMul = new nn.CPU.MatMulAVX2(maxDegreeOfParallelism);
+                        _MatMul = new nn.CPU.MatMulAVX2(0);
                     } else {
-                        _MatMul = new nn.F.MatMul(maxDegreeOfParallelism);
+                        _MatMul = new nn.F.MatMul(0);
                     }
                     break;
                 default:

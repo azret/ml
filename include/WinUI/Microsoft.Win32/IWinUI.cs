@@ -25,6 +25,8 @@ namespace Microsoft.Win32 {
     }
 
     public interface IWinUIController {
+        int DefaultWidth { get; }
+        int DefaultHeight { get; }
         bool IsDisposed { get; }
         void OnShow(IWinUI winUI);
         void OnClose(IWinUI winUI);

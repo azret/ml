@@ -4,9 +4,13 @@
     using Microsoft.WinMM;
 
     public class WinUIController<TViewModel> : IWinUIController {
+        public virtual int DefaultWidth { get; set; } = -1;
+        public virtual int DefaultHeight { get; set; } = -1;
+
         TViewModel _model;
         WinUIControllerOptions _options;
-        public WinUIController(TViewModel model, WinUIControllerOptions options = WinUIControllerOptions.None) {
+        public WinUIController(TViewModel model,
+            WinUIControllerOptions options = WinUIControllerOptions.None) {
             _model = model;
             _options = options;
         }

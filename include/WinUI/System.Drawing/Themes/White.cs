@@ -20,7 +20,7 @@
             public readonly Color C = Color.FromArgb(112, 218, 255);
             public readonly Color D = Color.FromArgb(141, 227, 141);
             public readonly Color E = Color.White;
-            public readonly Color DarkLine = Color.FromArgb(0, 0, 0);
+            public readonly Color DarkLine = Color.FromArgb(177, 177, 177);
             public readonly Color LightLine = Color.FromArgb(250, 250, 250);
         }
         _Colors Colors = new _Colors();

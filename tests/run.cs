@@ -63,51 +63,35 @@ internal unsafe class Run {
 
         int exitCode = 0;
 
-        // // =================== Testing SGD =======================
-        // 
-        // test_sgd(rootPath, 0, true, ref exitCode);
-        // test_sgd(rootPath, 0, false, ref exitCode);
-        // test_sgd(rootPath, -1, true, ref exitCode);
-        // test_sgd(rootPath, -1, false, ref exitCode);
-        // 
-        // // =================== Testing AdamW =======================
-        // 
-        // test_adam(rootPath, 0, true, ref exitCode);
-        // test_adam(rootPath, 0, false, ref exitCode);
-        // test_adam(rootPath, -1, true, ref exitCode);
-        // test_adam(rootPath, -1, false, ref exitCode);
+        // =================== Special Tests =======================
+
+        test_bernoulli(rootPath, ref exitCode);
 
         // =================== Basic Tests =======================
 
-        test_net(rootPath, bias: false, "Identity", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-4f, momentum: 0, weight_decay: 0, ref exitCode);
-        test_net(rootPath, bias: true, "Identity", maxDegreeOfParallelism: 0, optim: "AdamW", lr: 1e-4f, momentum: 0, weight_decay: 0, ref exitCode);
-        test_net(rootPath, bias: false, "Identity", maxDegreeOfParallelism: -1, optim: "AdamW", lr: 1e-4f, momentum: 0, weight_decay: 0, ref exitCode);
-        test_net(rootPath, bias: true, "Identity", maxDegreeOfParallelism: -1, optim: "SGD", lr: 1e-4f, momentum: 0, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: false, activation: "Identity", optim: "SGD", loss: "MSELoss", lr: 1e-4f, momentum: 0, weight_decay: 0, exitCode: ref exitCode);
+        test_net(rootPath, bias: true, activation: "Identity", optim: "AdamW", loss: "MSELoss", lr: 1e-4f, momentum: 0, weight_decay: 0, exitCode: ref exitCode, decimals: 3);
+        test_net(rootPath, bias: false, activation: "Identity", optim: "AdamW", loss: "MSELoss", lr: 1e-4f, momentum: 0, weight_decay: 0, exitCode: ref exitCode, decimals: 3);
+        test_net(rootPath, bias: true, activation: "Identity", optim: "SGD", loss: "MSELoss", lr: 1e-4f, momentum: 0, weight_decay: 0, exitCode: ref exitCode);
 
-        test_net(rootPath, bias: false, "ReLU", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-3f, momentum: 0, weight_decay: 0, ref exitCode);
-        test_net(rootPath, bias: false, "Sigmoid", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-3f, momentum: 0, weight_decay: 0, ref exitCode);
-        test_net(rootPath, bias: false, "LeakyReLU", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-3f, momentum: 0, weight_decay: 0, ref exitCode);
-        test_net(rootPath, bias: false, "Tanh", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-3f, momentum: 0, weight_decay: 0, ref exitCode);
-        test_net(rootPath, bias: false, "Dropout", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-3f, momentum: 0, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: false, activation: "ReLU", optim: "SGD", loss: "MSELoss", lr: 1e-3f, momentum: 0, weight_decay: 0, exitCode: ref exitCode);
+        test_net(rootPath, bias: false, activation: "Sigmoid", optim: "SGD", loss: "MSELoss", lr: 1e-3f, momentum: 0, weight_decay: 0, exitCode: ref exitCode);
+        test_net(rootPath, bias: false, activation: "LeakyReLU", optim: "SGD", loss: "MSELoss", lr: 1e-3f, momentum: 0, weight_decay: 0, exitCode: ref exitCode);
+        test_net(rootPath, bias: false, activation: "Tanh", optim: "SGD", loss: "MSELoss", lr: 1e-3f, momentum: 0, weight_decay: 0, exitCode: ref exitCode);
+        test_net(rootPath, bias: false, activation: "Dropout", optim: "SGD", loss: "MSELoss", lr: 1e-3f, momentum: 0, weight_decay: 0, exitCode: ref exitCode);
 
-        test_net(rootPath, bias: true, "Identity", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-1f, momentum: 0, weight_decay: 0, ref exitCode);
-        test_net(rootPath, bias: false, "Identity", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-1f, momentum: 1e-1f, weight_decay: 1e-1f, ref exitCode);
-        test_net(rootPath, bias: true, "Identity", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-1f, momentum: 0, weight_decay: 1e-1f, ref exitCode);
-        test_net(rootPath, bias: false, "Identity", maxDegreeOfParallelism: 0, optim: "SGD", lr: 1e-1f, momentum: 1e-1f, weight_decay: 0, ref exitCode);
+        test_net(rootPath, bias: true, activation: "Identity", optim: "SGD", loss: "MSELoss", lr: 1e-1f, momentum: 0, weight_decay: 0, exitCode: ref exitCode);
+        test_net(rootPath, bias: false, activation: "Identity", optim: "SGD", loss: "MSELoss", lr: 1e-1f, momentum: 1e-1f, weight_decay: 1e-5f, exitCode: ref exitCode);
+        test_net(rootPath, bias: true, activation: "Identity", optim: "SGD", loss: "MSELoss", lr: 1e-1f, momentum: 0, weight_decay: 1e-5f, exitCode: ref exitCode);
+        test_net(rootPath, bias: false, activation: "Identity", optim: "SGD", loss: "MSELoss", lr: 1e-1f, momentum: 1e-1f, weight_decay: 0, exitCode: ref exitCode);
 
-        test_net(rootPath, bias: true, "Identity", maxDegreeOfParallelism: 0, optim: "AdamW", lr: 1e-4f, momentum: 0, weight_decay: 0, ref exitCode);
-        test_net(rootPath, bias: true, "Identity", maxDegreeOfParallelism: 0, optim: "AdamW", lr: 1e-4f, momentum: 0, weight_decay: 1e-4f, ref exitCode, decimals: 3);
-        test_net(rootPath, bias: false, "Identity", maxDegreeOfParallelism: 0, optim: "AdamW", lr: 1e-4f, momentum: 0, weight_decay: 0, ref exitCode);
-        test_net(rootPath, bias: false, "Identity", maxDegreeOfParallelism: 0, optim: "AdamW", lr: 1e-4f, momentum: 0, weight_decay: 1e-4f, ref exitCode, decimals: 3);
+        test_net(rootPath, bias: true, activation: "Identity", optim: "AdamW", loss: "MSELoss", lr: 1e-4f, momentum: 0, weight_decay: 0, exitCode: ref exitCode, decimals: 3);
+        test_net(rootPath, bias: true, activation: "Identity", optim: "AdamW", loss: "MSELoss", lr: 1e-4f, momentum: 0, weight_decay: 1e-5f, exitCode: ref exitCode, decimals: 3);
+        test_net(rootPath, bias: false, activation: "Identity", optim: "AdamW", loss: "MSELoss", lr: 1e-4f, momentum: 0, weight_decay: 0, exitCode: ref exitCode, decimals: 3);
+        test_net(rootPath, bias: false, activation: "Identity", optim: "AdamW", loss: "MSELoss", lr: 1e-4f, momentum: 0, weight_decay: 1e-5f, exitCode: ref exitCode, decimals: 3);
 
-        // // =================== Testing RNG =======================
-        // 
-        // test_bernoulli(rootPath, ref exitCode);
-        // 
-        // // =================== Testing Dropout =======================
-        // 
-        // test_dropout(rootPath, ref exitCode);
-
+        test_net(rootPath, bias: false, activation: "Identity", optim: "AdamW", loss: "BCELoss", lr: 1e-5f, momentum: 0, weight_decay: 0, exitCode: ref exitCode, decimals: 3);
+        test_net(rootPath, bias: false, activation: "Identity", optim: "SGD", loss: "BCELoss", lr: 1e-5f, momentum: 0, weight_decay: 0, exitCode: ref exitCode);
 
         if (Debugger.IsAttached) {
             Console.Write("\nPress any key to continue...");
@@ -121,8 +105,8 @@ internal unsafe class Run {
         string rootPath,
         bool bias,
         string activation,
-        int maxDegreeOfParallelism,
         string optim,
+        string loss,
         float lr,
         float momentum,
         float weight_decay,
@@ -139,7 +123,7 @@ internal unsafe class Run {
         string cs_log = "test_net.cs.txt";
         string py_log = "test_net.py.txt";
 
-        string py_args = $"generic.py --decimals {decimals} --bias {(bias ? "yes" : "no")} --activation {activation} --optim {optim} --lr {lr:0e+00} --momentum {momentum:0e+00} --weight_decay {weight_decay:0e+00} --maxDegreeOfParallelism {maxDegreeOfParallelism}";
+        string py_args = $"generic.py --d {decimals} --loss {loss} --bias {(bias ? "yes" : "no")} --a {activation} --o {optim} --lr {lr:0e+00} --m {momentum:0e+00} --weight_decay {weight_decay:0e+00}";
 
         if (File.Exists(rootPath + cs_log)) File.Delete(rootPath + cs_log);
         if (File.Exists(rootPath + py_log)) File.Delete(rootPath + py_log);
@@ -147,7 +131,7 @@ internal unsafe class Run {
         Console.WriteLine(py_args);
 
         StreamWriter OUT = File.CreateText(rootPath + cs_log);
-        generic.test_net(OUT, bias, activation, maxDegreeOfParallelism, optim, lr, momentum, weight_decay, decimals);
+        generic.test_net(OUT, bias, activation, optim, loss, lr, momentum, weight_decay, decimals);
         OUT.Flush();
         OUT.Close();
 
@@ -175,67 +159,6 @@ internal unsafe class Run {
             Console.ForegroundColor = ConsoleColor.Green;
         }
 
-        Console.ResetColor();
-    }
-
-    private static void test_adam(string rootPath, int maxDegreeOfParallelism, bool naive, ref int exitCode) {
-        Console.WriteLine($"test_adam w/ maxDegreeOfParallelism = {maxDegreeOfParallelism}, naive = {naive}");
-
-        StreamWriter OUT = File.CreateText(rootPath + "iris.csharp.AdamW.txt");
-        iris.test_iris(OUT, rootPath + "iris.csv", "AdamW", "BCELoss", 1e-6f, batch_size: 30, maxDegreeOfParallelism: maxDegreeOfParallelism, naive: naive);
-        OUT.Flush();
-        OUT.Close();
-
-        OUT = File.CreateText(rootPath + "iris.pytorch.AdamW.txt");
-        OUT.Write(runpy(rootPath + "iris.py --batch_size 30 --optim AdamW --lr 1e-6 --loss BCELoss"));
-        OUT.Flush();
-        OUT.Close();
-
-        if (File.ReadAllText(rootPath + "iris.csharp.AdamW.txt") !=
-        File.ReadAllText(rootPath + "iris.pytorch.AdamW.txt")) {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("FAILED!");
-            exitCode = 1;
-        } else {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("OK.");
-        }
-        Console.ResetColor();
-    }
-
-    private static void test_sgd(string rootPath, int maxDegreeOfParallelism, bool naive, ref int exitCode) {
-        Console.WriteLine($"test_sgd w/ maxDegreeOfParallelism = {maxDegreeOfParallelism}, naive = {naive}");
-
-        var OUT = File.CreateText(rootPath + "iris.csharp.SGD.txt");
-        iris.test_iris(OUT, rootPath + "iris.csv", "SGD", "MSELoss", 1e-6f, batch_size: 40, maxDegreeOfParallelism: maxDegreeOfParallelism, naive: naive);
-        OUT.Flush();
-        OUT.Close();
-
-        OUT = File.CreateText(rootPath + "iris.pytorch.SGD.txt");
-        OUT.Write(runpy(rootPath + "iris.py --batch_size 40 --optim SGD --lr 1e-6 --loss MSELoss"));
-        OUT.Flush();
-        OUT.Close();
-
-        if (File.ReadAllText(rootPath + "iris.csharp.SGD.txt") !=
-                File.ReadAllText(rootPath + "iris.pytorch.SGD.txt")) {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("ERROR!");
-            var py_lines = File.ReadAllLines(rootPath + "iris.pytorch.SGD.txt");
-            var cs_lines = File.ReadAllLines(rootPath + "iris.csharp.SGD.txt");
-            for (int i = 0; i < py_lines.Length; i++) {
-                if (py_lines[i] != cs_lines[i]) {
-                    Console.ForegroundColor = ConsoleColor.DarkYellow;
-                    Console.WriteLine("\nEXPECTED: " + py_lines[i]);
-                    Console.WriteLine();
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("ACTUAL: " + cs_lines[i]);
-                }
-            }
-            exitCode = 1;
-        } else {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("OK.");
-        }
         Console.ResetColor();
     }
 
@@ -270,93 +193,5 @@ internal unsafe class Run {
             Console.WriteLine("OK.");
         }
         Console.ResetColor();
-    }
-
-    static void test_dropout_forward(string rootPath, double p, string mode, ref int exitCode) {
-        string cs_log = "cs.test_dropout_forward.txt";
-        string py_log = "py.test_dropout_forward.txt";
-
-        Console.WriteLine($"{nameof(test_dropout_forward)} w/ p = {p}, mode = {mode}");
-        var OUT = File.CreateText(rootPath + cs_log);
-        if (mode == "train")
-            dropout.test_dropout_forward(OUT, p, train: true);
-        else if (mode == "eval")
-            dropout.test_dropout_forward(OUT, p, train: false);
-        else
-            throw new ArgumentOutOfRangeException(nameof(mode));
-        OUT.Flush();
-        OUT.Close();
-        OUT = File.CreateText(rootPath + py_log);
-        OUT.Write(runpy(rootPath + "dropout.py " + "--p=" + p + " --mode=" + mode));
-        OUT.Flush();
-        OUT.Close();
-        if (File.ReadAllText(rootPath + cs_log) !=
-            File.ReadAllText(rootPath + py_log)) {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("FAILED!");
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine("\nEXPECTED: " + File.ReadAllText(rootPath + py_log));
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("ACTUAL: " + File.ReadAllText(rootPath + cs_log));
-            exitCode = 1;
-        } else {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("OK.");
-        }
-        Console.ResetColor();
-    }
-
-    static void test_dropout_backward(string rootPath, double p, string use_dropout, ref int exitCode) {
-        string cs_log = "test_dropout_backward.cs.txt";
-        string py_log = "test_dropout_backward.py.txt";
-
-        Console.WriteLine($"{nameof(test_dropout_backward)} w/ p = {p}, dropout = {use_dropout}");
-        var OUT = File.CreateText(rootPath + cs_log);
-        if (use_dropout == "yes")
-            dropout.test_dropout_backward(OUT, p, use_dropout: true);
-        else if (use_dropout == "no")
-            dropout.test_dropout_backward(OUT, p, use_dropout: false);
-        else
-            throw new ArgumentOutOfRangeException(nameof(use_dropout));
-        OUT.Flush();
-        OUT.Close();
-        OUT = File.CreateText(rootPath + py_log);
-        OUT.Write(runpy(rootPath + "dropout.py --net=yes --p=" + p + " --dropout=" + use_dropout));
-        OUT.Flush();
-        OUT.Close();
-        if (File.ReadAllText(rootPath + cs_log) !=
-            File.ReadAllText(rootPath + py_log)) {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("FAILED!");
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine("\nEXPECTED: " + File.ReadAllText(rootPath + py_log));
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("ACTUAL: " + File.ReadAllText(rootPath + cs_log));
-            exitCode = 1;
-        } else {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("OK.");
-        }
-        Console.ResetColor();
-    }
-
-    static void test_dropout(string rootPath, ref int exitCode) {
-        test_dropout_forward(rootPath, 0, "train", ref exitCode);
-        test_dropout_forward(rootPath, 0.3, "train", ref exitCode);
-        test_dropout_forward(rootPath, 1, "train", ref exitCode);
-
-        test_dropout_forward(rootPath, 0, "eval", ref exitCode);
-        test_dropout_forward(rootPath, 0.3, "eval", ref exitCode);
-        test_dropout_forward(rootPath, 1, "eval", ref exitCode);
-
-        test_dropout_backward(rootPath, 0, "yes", ref exitCode);
-        test_dropout_backward(rootPath, 0.3, "yes", ref exitCode);
-        test_dropout_backward(rootPath, 1, "yes", ref exitCode);
-
-        test_dropout_backward(rootPath, 0, "no", ref exitCode);
-        test_dropout_backward(rootPath, 0.3, "no", ref exitCode);
-        test_dropout_backward(rootPath, 1, "no", ref exitCode);
     }
 }

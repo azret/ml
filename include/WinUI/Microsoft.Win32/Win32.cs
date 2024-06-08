@@ -79,7 +79,18 @@ namespace Microsoft {
             [DllImport("gdi32.dll")]
             public static extern uint SetPixel(IntPtr hdc, int X, int Y, uint crColor);
             #endregion
+
             #region user32.dll
+            public enum DpiAwarenessContext {
+                UnawareGdiScaled = -5,
+                PerMonitorAwareV2 = -4,
+                PerMonitorAware = -3,
+                SystemAware = -2,
+                Unaware = -1,
+                Undefined = 0
+            }
+            [DllImport("user32.dll")]
+            public static extern bool SetProcessDpiAwarenessContext(DpiAwarenessContext value);
             [DllImport("user32.dll")]
             public static extern IntPtr DispatchMessage([In] ref MSG lpmsg);
             [DllImport("user32.dll")]
@@ -160,15 +171,21 @@ namespace Microsoft {
 
             [DllImport("user32.dll")]
             public static extern bool ReleaseDC(IntPtr hwnd, IntPtr hdc);
+           
             [DllImport("user32.dll")]
             public static extern IntPtr BeginPaint(IntPtr hwnd, out PAINTSTRUCT lpPaint);
+
             [DllImport("user32.dll")]
             public static extern IntPtr DefWindowProc(IntPtr hWnd, WM uMsg, IntPtr wParam, IntPtr lParam);
+
             [DllImport("user32.dll")]
             public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
 
             [DllImport("user32.dll")]
             public static extern int GetSystemMetrics(int nIndex);
+
+            [DllImport("user32.dll", EntryPoint = "SetWindowPos")]
+            public static extern IntPtr SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int Y, int cx, int cy, int wFlags);
 
             [DllImport("user32.dll")]
             public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);

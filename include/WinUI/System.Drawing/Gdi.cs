@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+﻿using System.Runtime.Versioning;
 
 namespace System.Drawing {
     public enum SignalType {
@@ -7,6 +7,7 @@ namespace System.Drawing {
         Curve,
     }
 
+    [SupportedOSPlatform("windows")]
     public static class Gdi {
         const byte Xscale = 13;
         const byte Yscale = 13;

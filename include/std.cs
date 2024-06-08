@@ -7,6 +7,44 @@ using System.Runtime.InteropServices;
 using static kernel32;
 
 public static partial class std {
+    public static void shuffle<T>(T[] values, ref ulong MCG) {
+        if (MCG == 0) MCG = 1;
+        ulong N = (ulong)values.Length;
+        for (ulong i = 0; i < N - 1; i++) {
+            // Inline MCG(1132489760, 2^31 -1) [L'Ecuyer99]
+            ulong j = (MCG % 0x000000007FFFFFFF) % (ulong)values.Length;
+            unchecked {
+                MCG = 1132489760 * MCG;
+                MCG = MCG % 0x000000007FFFFFFF;
+            }
+            if (j != i) {
+                T temp = values[i];
+                values[i] = values[j];
+                values[j] = temp;
+            }
+        }
+    }
+
+    public static void sort<T>(T[] A, int lo, int hi, Comparison<T> compare) {
+        if (lo >= 0 && lo < hi) {
+            int eq = lo, p = (lo + hi) / 2; int lt = lo, gt = hi;
+            while (eq <= gt) {
+                int c = compare(A[eq], A[p]);
+                if (c < 0) {
+                    T t = A[eq]; A[eq] = A[lt]; A[lt] = t;
+                    lt++; eq++;
+                } else if (c > 0) {
+                    T t = A[eq]; A[eq] = A[gt]; A[gt] = t;
+                    gt--;
+                } else {
+                    eq++;
+                }
+            }
+            sort(A, lo, lt - 1, compare);
+            sort(A, gt + 1, hi, compare);
+        }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static float min(float x, float y) {
         return (float)Math.Min(x, y);
