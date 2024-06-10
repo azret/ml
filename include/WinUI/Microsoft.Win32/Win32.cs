@@ -11,11 +11,241 @@ namespace Microsoft {
     }
     namespace Win32 {
         public static class User32 {
+            public const int SM_CXSIZEFRAME = 32;
+            public const int SM_CYSIZEFRAME = 33;
+            public const int SM_CXBORDER = 5;
+            public const int SM_CYBORDER = 6;
+            public const int SM_CYCAPTION = 4;
+            public const int SM_CXPADDEDBORDER = 92;
+            public const int HTCLOSE = 20;
+            public const int HTCAPTION = 2;
+            public const int HTLEFT = 10;
+            public const int HTCLIENT = 1;
+            public const int HTRIGHT = 11;
+            public const int HTTOP = 12;
+            public const int HTTOPLEFT = 13;
+            public const int HTTOPRIGHT = 14;
+            public const int HTBOTTOM = 15;
+            public const int HTBOTTOMLEFT = 16;
+            public const int HTBOTTOMRIGHT = 17;
+
+            [StructLayout(LayoutKind.Sequential)]
+            public struct NCCALCSIZE_PARAMS {
+                public RECT rgrc0, rgrc1, rgrc2;
+                public IntPtr lppos;
+            }
+
+            [StructLayout(LayoutKind.Sequential)]
+            public struct WINDOWPOS {
+                public IntPtr hwnd;
+                public IntPtr hwndInsertAfter;
+                public int x, y;
+                public int cx, cy;
+                public int flags;
+            }
+
+            public enum DWMNCRENDERINGPOLICY : uint {
+                DWMNCRP_USEWINDOWSTYLE,
+                DWMNCRP_DISABLED,
+                DWMNCRP_ENABLED,
+                DWMNCRP_LAST
+            };
+
+            [Flags]
+            public enum DWMWINDOWATTRIBUTE : uint {
+                /// <summary>
+                /// Use with DwmGetWindowAttribute. Discovers whether non-client rendering is enabled. The retrieved value is of type BOOL. TRUE if non-client rendering is enabled; otherwise, FALSE.
+                /// </summary>
+                DWMWA_NCRENDERING_ENABLED = 1,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Sets the non-client rendering policy. The pvAttribute parameter points to a value from the DWMNCRENDERINGPOLICY enumeration.
+                /// </summary>
+                DWMWA_NCRENDERING_POLICY,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Enables or forcibly disables DWM transitions. The pvAttribute parameter points to a value of type BOOL. TRUE to disable transitions, or FALSE to enable transitions.
+                /// </summary>
+                DWMWA_TRANSITIONS_FORCEDISABLED,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Enables content rendered in the non-client area to be visible on the frame drawn by DWM. The pvAttribute parameter points to a value of type BOOL. TRUE to enable content rendered in the non-client area to be visible on the frame; otherwise, FALSE.
+                /// </summary>
+                DWMWA_ALLOW_NCPAINT,
+
+                /// <summary>
+                /// Use with DwmGetWindowAttribute. Retrieves the bounds of the caption button area in the window-relative space. The retrieved value is of type RECT. If the window is minimized or otherwise not visible to the user, then the value of the RECT retrieved is undefined. You should check whether the retrieved RECT contains a boundary that you can work with, and if it doesn't then you can conclude that the window is minimized or otherwise not visible.
+                /// </summary>
+                DWMWA_CAPTION_BUTTON_BOUNDS,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Specifies whether non-client content is right-to-left (RTL) mirrored. The pvAttribute parameter points to a value of type BOOL. TRUE if the non-client content is right-to-left (RTL) mirrored; otherwise, FALSE.
+                /// </summary>
+                DWMWA_NONCLIENT_RTL_LAYOUT,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Forces the window to display an iconic thumbnail or peek representation (a static bitmap), even if a live or snapshot representation of the window is available. This value is normally set during a window's creation, and not changed throughout the window's lifetime. Some scenarios, however, might require the value to change over time. The pvAttribute parameter points to a value of type BOOL. TRUE to require a iconic thumbnail or peek representation; otherwise, FALSE.
+                /// </summary>
+                DWMWA_FORCE_ICONIC_REPRESENTATION,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Sets how Flip3D treats the window. The pvAttribute parameter points to a value from the DWMFLIP3DWINDOWPOLICY enumeration.
+                /// </summary>
+                DWMWA_FLIP3D_POLICY,
+
+                /// <summary>
+                /// Use with DwmGetWindowAttribute. Retrieves the extended frame bounds rectangle in screen space. The retrieved value is of type RECT.
+                /// </summary>
+                DWMWA_EXTENDED_FRAME_BOUNDS,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. The window will provide a bitmap for use by DWM as an iconic thumbnail or peek representation (a static bitmap) for the window. DWMWA_HAS_ICONIC_BITMAP can be specified with DWMWA_FORCE_ICONIC_REPRESENTATION. DWMWA_HAS_ICONIC_BITMAP normally is set during a window's creation and not changed throughout the window's lifetime. Some scenarios, however, might require the value to change over time. The pvAttribute parameter points to a value of type BOOL. TRUE to inform DWM that the window will provide an iconic thumbnail or peek representation; otherwise, FALSE. Windows Vista and earlier: This value is not supported.
+                /// </summary>
+                DWMWA_HAS_ICONIC_BITMAP,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Do not show peek preview for the window. The peek view shows a full-sized preview of the window when the mouse hovers over the window's thumbnail in the taskbar. If this attribute is set, hovering the mouse pointer over the window's thumbnail dismisses peek (in case another window in the group has a peek preview showing). The pvAttribute parameter points to a value of type BOOL. TRUE to prevent peek functionality, or FALSE to allow it. Windows Vista and earlier: This value is not supported.
+                /// </summary>
+                DWMWA_DISALLOW_PEEK,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Prevents a window from fading to a glass sheet when peek is invoked. The pvAttribute parameter points to a value of type BOOL. TRUE to prevent the window from fading during another window's peek, or FALSE for normal behavior. Windows Vista and earlier: This value is not supported.
+                /// </summary>
+                DWMWA_EXCLUDED_FROM_PEEK,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Cloaks the window such that it is not visible to the user. The window is still composed by DWM. Using with DirectComposition: Use the DWMWA_CLOAK flag to cloak the layered child window when animating a representation of the window's content via a DirectComposition visual that has been associated with the layered child window. For more details on this usage case, see How to animate the bitmap of a layered child window. Windows 7 and earlier: This value is not supported.
+                /// </summary>
+                DWMWA_CLOAK,
+
+                /// <summary>
+                /// Use with DwmGetWindowAttribute. If the window is cloaked, provides one of the following values explaining why. DWM_CLOAKED_APP (value 0x0000001). The window was cloaked by its owner application. DWM_CLOAKED_SHELL(value 0x0000002). The window was cloaked by the Shell. DWM_CLOAKED_INHERITED(value 0x0000004). The cloak value was inherited from its owner window. Windows 7 and earlier: This value is not supported.
+                /// </summary>
+                DWMWA_CLOAKED,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Freeze the window's thumbnail image with its current visuals. Do no further live updates on the thumbnail image to match the window's contents. Windows 7 and earlier: This value is not supported.
+                /// </summary>
+                DWMWA_FREEZE_REPRESENTATION,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Enables a non-UWP window to use host backdrop brushes. If this flag is set, then a Win32 app that calls Windows::UI::Composition APIs can build transparency effects using the host backdrop brush (see Compositor.CreateHostBackdropBrush). The pvAttribute parameter points to a value of type BOOL. TRUE to enable host backdrop brushes for the window, or FALSE to disable it. This value is supported starting with Windows 11 Build 22000.
+                /// </summary>
+                DWMWA_USE_HOSTBACKDROPBRUSH,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Allows the window frame for this window to be drawn in dark mode colors when the dark mode system setting is enabled. For compatibility reasons, all windows default to light mode regardless of the system setting. The pvAttribute parameter points to a value of type BOOL. TRUE to honor dark mode for the window, FALSE to always use light mode. This value is supported starting with Windows 10 Build 17763.
+                /// </summary>
+                DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Allows the window frame for this window to be drawn in dark mode colors when the dark mode system setting is enabled. For compatibility reasons, all windows default to light mode regardless of the system setting. The pvAttribute parameter points to a value of type BOOL. TRUE to honor dark mode for the window, FALSE to always use light mode. This value is supported starting with Windows 11 Build 22000.
+                /// </summary>
+                DWMWA_USE_IMMERSIVE_DARK_MODE = 20,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Specifies the rounded corner preference for a window. The pvAttribute parameter points to a value of type DWM_WINDOW_CORNER_PREFERENCE. This value is supported starting with Windows 11 Build 22000.
+                /// </summary>
+                DWMWA_WINDOW_CORNER_PREFERENCE = 33,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Specifies the color of the window border. The pvAttribute parameter points to a value of type COLORREF. The app is responsible for changing the border color according to state changes, such as a change in window activation. This value is supported starting with Windows 11 Build 22000.
+                /// </summary>
+                DWMWA_BORDER_COLOR,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Specifies the color of the caption. The pvAttribute parameter points to a value of type COLORREF. This value is supported starting with Windows 11 Build 22000.
+                /// </summary>
+                DWMWA_CAPTION_COLOR,
+
+                /// <summary>
+                /// Use with DwmSetWindowAttribute. Specifies the color of the caption text. The pvAttribute parameter points to a value of type COLORREF. This value is supported starting with Windows 11 Build 22000.
+                /// </summary>
+                DWMWA_TEXT_COLOR,
+
+                /// <summary>
+                /// Use with DwmGetWindowAttribute. Retrieves the width of the outer border that the DWM would draw around this window. The value can vary depending on the DPI of the window. The pvAttribute parameter points to a value of type UINT. This value is supported starting with Windows 11 Build 22000.
+                /// </summary>
+                DWMWA_VISIBLE_FRAME_BORDER_THICKNESS,
+
+                /// <summary>
+                /// The maximum recognized DWMWINDOWATTRIBUTE value, used for validation purposes.
+                /// </summary>
+                DWMWA_LAST,
+            }
+
+            public enum DWM_WINDOW_CORNER_PREFERENCE {
+                DWMWCP_DEFAULT = 0,
+                DWMWCP_DONOTROUND = 1,
+                DWMWCP_ROUND = 2,
+                DWMWCP_ROUNDSMALL = 3
+            }
+
+            [DllImport("dwmapi.dll")]
+            unsafe public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, void* pvAttribute, int cbAttribute);
+
+            [DllImport("dwmapi.dll")]
+            unsafe public static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, void* pvAttribute, int cbAttribute);
+
+            [StructLayout(LayoutKind.Sequential)]
+            public struct _MARGINS {
+                public int cxLeftWidth;
+                public int cxRightWidth;
+                public int cyTopHeight;
+                public int cyBottomHeight;
+            };
+
+            [DllImport("dwmapi.dll", EntryPoint = "DwmExtendFrameIntoClientArea")]
+            public static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, [In] ref _MARGINS pMarInset);
+
+            [DllImport("dwmapi.dll")]
+            public static extern IntPtr DwmDefWindowProc(IntPtr hWnd, WM uMsg, IntPtr wParam, IntPtr lParam, out IntPtr plResult);
+
+            [DllImport("user32.dll")]
+            public static extern uint GetDpiForWindow(IntPtr hWnd);
+
+            public const int EP_EDITTEXT = 1;
+            public const int ETS_NORMAL = 1;
+            public const int ETS_DISABLED = 4;
+
+            [DllImport("uxtheme.dll")]
+            public static extern int CloseThemeData(IntPtr hTheme);
+
+            [DllImport("uxtheme.dll")]
+            public static extern int DrawThemeBackground(IntPtr hTheme, IntPtr hdc, int iPartId, int iStateId, ref RECT pRect, IntPtr pClipRect);
+
+            [DllImport("uxtheme.dll")]
+            public static extern int DrawThemeParentBackground(IntPtr hWnd, IntPtr hdc, ref RECT pRect);
+
+            [DllImport("gdi32.dll")]
+            public static extern int ExcludeClipRect(IntPtr hdc, int nLeftRect, int nTopRect, int nRightRect, int nBottomRect);
+
+            [DllImport("uxtheme.dll")]
+            public static extern int IsThemeBackgroundPartiallyTransparent(IntPtr hTheme, int iPartId, int iStateId);
+
             #region gdi32.dll
             [DllImport("gdi32.dll")]
             public static extern IntPtr GetStockObject(StockObjects fnObject);
+
             [DllImport("gdi32.dll")]
             public static extern IntPtr CreateSolidBrush(int colorRef);
+
+            [DllImport("gdi32.dll")]
+            public static extern int SetTextColor(IntPtr hdc, int colorRef);
+
+            [DllImport("gdi32.dll")]
+            public static extern int SetBkColor(IntPtr hdc, int colorRef);
+
+            public const int PS_SOLID = 0;
+            public const int PS_DASH = 1;       /* -------  */
+            public const int PS_DOT = 2;       /* .......  */
+            public const int PS_DASHDOT = 3;       /* _._._._  */
+            public const int PS_DASHDOTDOT = 4;       /* _.._.._  */
+            public const int PS_NULL = 5;
+
+            [DllImport("gdi32.dll")]
+            public static extern IntPtr CreatePen(int colorRef, int width);
+
             [DllImport("gdi32.dll", EntryPoint = "CreateCompatibleDC", SetLastError = true)]
             public static extern IntPtr CreateCompatibleDC([In] IntPtr hdc);
             [DllImport("gdi32.dll", EntryPoint = "CreateCompatibleBitmap")]
@@ -78,6 +308,14 @@ namespace Microsoft {
             public static extern bool InvalidateRect(IntPtr hWnd, [In] ref RECT lpRect, bool bErase);
             [DllImport("gdi32.dll")]
             public static extern uint SetPixel(IntPtr hdc, int X, int Y, uint crColor);
+
+            [DllImport("user32.dll")]
+            public static extern bool GetCursorPos(out POINT pt);
+            [DllImport("user32.dll")]
+            public static extern bool ScreenToClient(IntPtr hWnd, ref POINT pt);
+            [DllImport("user32.dll")]
+            public static extern bool PtInRect(ref RECT rc, POINT pt);
+
             #endregion
 
             #region user32.dll
@@ -120,6 +358,17 @@ namespace Microsoft {
             
             [DllImport("user32.dll", CharSet = CharSet.Ansi)]
             public static extern IntPtr CreateMenu();
+
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+            public static extern bool AppendMenuW(
+                  IntPtr hMenu,
+                  uint uFlags,
+                  IntPtr uIDNewItem,
+                  string lpNewItem
+                );
+
+            [DllImport("user32.dll", CharSet = CharSet.Auto)]
+            public static extern bool SetMenu(IntPtr hwnd, IntPtr hMenu);
 
             [Flags]
             public enum MIIM {
@@ -184,11 +433,38 @@ namespace Microsoft {
             [DllImport("user32.dll")]
             public static extern int GetSystemMetrics(int nIndex);
 
+            [DllImport("user32.dll")]
+            public static extern int GetSystemMetricsForDpi(int nIndex, uint dpi);
+
             [DllImport("user32.dll", EntryPoint = "SetWindowPos")]
             public static extern IntPtr SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int Y, int cx, int cy, int wFlags);
 
             [DllImport("user32.dll")]
             public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+            public const int DT_TOP = 0x00000000;
+            public const int DT_LEFT = 0x00000000;
+            public const int DT_CENTER = 0x00000001;
+            public const int DT_RIGHT = 0x00000002;
+            public const int DT_VCENTER = 0x00000004;
+            public const int DT_BOTTOM = 0x00000008;
+            public const int DT_WORDBREAK = 0x00000010;
+            public const int DT_SINGLELINE = 0x00000020;
+            public const int DT_EXPANDTABS = 0x00000040;
+            public const int DT_TABSTOP = 0x00000080;
+            public const int DT_NOCLIP = 0x00000100;
+            public const int DT_EXTERNALLEADING = 0x00000200;
+            public const int DT_CALCRECT = 0x00000400;
+            public const int DT_NOPREFIX = 0x00000800;
+            public const int DT_INTERNAL = 0x00001000;
+
+            public const int DT_EDITCONTROL = 0x00002000;
+            public const int DT_PATH_ELLIPSIS = 0x00004000;
+            public const int DT_END_ELLIPSIS = 0x00008000;
+            public const int DT_MODIFYSTRING = 0x00010000;
+            public const int DT_RTLREADING = 0x00020000;
+            public const int DT_WORD_ELLIPSIS = 0x00040000;
+
             [DllImport("user32.dll")]
             public static extern int DrawText(IntPtr hDC, string lpString, int nCount, ref RECT lpRect, uint uFormat);
             [DllImport("user32.dll")]
@@ -213,6 +489,23 @@ namespace Microsoft {
             public static extern MessageBoxResult MessageBox(IntPtr hWnd, string text, string caption, int options);
             [DllImport("user32.dll")]
             public static extern bool UpdateWindow(IntPtr hWnd);
+
+            public const int RDW_INVALIDATE = 0x0001;
+            public const int RDW_INTERNALPAINT = 0x0002;
+            public const int RDW_ERASE = 0x0004;
+            public const int RDW_VALIDATE = 0x0008;
+            public const int RDW_NOINTERNALPAINT = 0x0010;
+            public const int RDW_NOERASE = 0x0020;
+            public const int RDW_NOCHILDREN = 0x0040;
+            public const int RDW_ALLCHILDREN = 0x0080;
+            public const int RDW_UPDATENOW = 0x0100;
+            public const int RDW_ERASENOW = 0x0200;
+            public const int RDW_FRAME = 0x0400;
+            public const int RDW_NOFRAME = 0x0800;
+
+            [DllImport("user32.dll")]
+            public static extern bool RedrawWindow(IntPtr hWnd, IntPtr lprcUpdate, IntPtr hrgnUpdate, int flags);
+
             [DllImport("user32.dll")]
             public static extern IntPtr LoadCursor(IntPtr hInstance, int lpCursorName);
             [DllImport("user32.dll", SetLastError = true, EntryPoint = "RegisterClassExA", CharSet = CharSet.Ansi)]
@@ -223,6 +516,19 @@ namespace Microsoft {
             public static extern IntPtr GetModuleHandle(string lpModuleName);
             [DllImport("user32.dll", SetLastError = true, EntryPoint = "SetWindowTextA", CharSet = CharSet.Unicode)]
             public static extern bool SetWindowTextA(IntPtr hwnd, [MarshalAs(UnmanagedType.LPTStr)] String lpString);
+
+            [DllImport("user32.dll", SetLastError = true, EntryPoint = "SetWindowTextA", CharSet = CharSet.Unicode)]
+            public static extern int GetWindowTextLength(IntPtr hwnd);
+
+            [DllImport("user32.dll", SetLastError = true, EntryPoint = "GetWindowText", CharSet = CharSet.Unicode)]
+            static extern bool GetWindowText(IntPtr hwnd, StringBuilder lpString, int cc);
+            public static string GetWindowText(IntPtr hWnd) {
+                int cc = GetWindowTextLength(hWnd);
+                StringBuilder sb = new StringBuilder(cc + 1);
+                GetWindowText(hWnd, sb, sb.Capacity);
+                return sb.ToString();
+            }
+
             public enum WindowLongFlags : int {
                 GWL_EXSTYLE = -20,
                 GWLP_HINSTANCE = -6,
@@ -241,10 +547,21 @@ namespace Microsoft {
                 else
                     return new IntPtr(SetWindowLong32(hWnd, nIndex, lpfnWndProc));
             }
+            public static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex) {
+                if (IntPtr.Size == 8)
+                    return GetWindowLongPtr64(hWnd, nIndex);
+                else
+                    return GetWindowLong32(hWnd, nIndex);
+            }
             [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
-            private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, IntPtr lpfnWndProc);
+            private static extern IntPtr SetWindowLong32(IntPtr hWnd, int nIndex, IntPtr lpfnWndProc);
             [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
             private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr lpfnWndProc);
+
+            [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
+            private static extern IntPtr GetWindowLong32(IntPtr hWnd, int nIndex);
+            [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
+            private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
             #endregion
         }
 

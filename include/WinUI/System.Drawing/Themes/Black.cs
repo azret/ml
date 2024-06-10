@@ -14,7 +14,7 @@
         }
         _Fonts Fonts = new _Fonts();
         class _Colors {
-            public readonly Color Background = Color.FromArgb(12, 12, 12);
+            public readonly Color Background = Color.FromArgb(0x0C, 0x0C, 0x0C);
             public readonly Color Foreground = Color.FromArgb(178, 178, 178);
             public readonly Color A = Color.FromArgb(255, 227, 158);
             public readonly Color B = Color.FromArgb(245, 87, 98);
@@ -22,7 +22,7 @@
             public readonly Color D = Color.FromArgb(141, 227, 141);
             public readonly Color E = Color.White;
             public readonly Color LightLine = Color.FromArgb(46, 46, 46);
-            public readonly Color DarkLine = Color.FromArgb(66, 66, 66);
+            public readonly Color DarkLine = Color.FromArgb(0x2F, 0x2F, 0x2F);
         }
         _Colors Colors = new _Colors();
         class _Brushes {
@@ -112,6 +112,10 @@
                     return Colors.D;
                 case ThemeColor.E:
                     return Colors.E;
+                case ThemeColor.DarkLine:
+                    return Colors.DarkLine;
+                case ThemeColor.LightLine:
+                    return Colors.LightLine;
             }
             throw new NotImplementedException();
         }

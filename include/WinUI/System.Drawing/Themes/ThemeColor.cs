@@ -9,6 +9,7 @@
         E,
         DarkLine,
         LightLine,
+        TitleBar,
     }
 
     public static class ThemeExtensions {
