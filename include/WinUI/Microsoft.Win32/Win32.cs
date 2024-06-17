@@ -17,8 +17,10 @@ namespace Microsoft {
             public const int SM_CYBORDER = 6;
             public const int SM_CYCAPTION = 4;
             public const int SM_CXPADDEDBORDER = 92;
+
             public const int HTCLOSE = 20;
             public const int HTCAPTION = 2;
+            public const int HTZOOM = 9;
             public const int HTLEFT = 10;
             public const int HTCLIENT = 1;
             public const int HTRIGHT = 11;
@@ -193,13 +195,19 @@ namespace Microsoft {
                 public int cxRightWidth;
                 public int cyTopHeight;
                 public int cyBottomHeight;
+                public _MARGINS(int offset) {
+                    cxLeftWidth = offset;
+                    cxRightWidth = offset;
+                    cyTopHeight = offset;
+                    cyBottomHeight = offset;
+                }
             };
 
             [DllImport("dwmapi.dll", EntryPoint = "DwmExtendFrameIntoClientArea")]
             public static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, [In] ref _MARGINS pMarInset);
 
             [DllImport("dwmapi.dll")]
-            public static extern IntPtr DwmDefWindowProc(IntPtr hWnd, WM uMsg, IntPtr wParam, IntPtr lParam, out IntPtr plResult);
+            public static extern bool DwmDefWindowProc(IntPtr hWnd, WM uMsg, IntPtr wParam, IntPtr lParam, out IntPtr plResult);
 
             [DllImport("user32.dll")]
             public static extern uint GetDpiForWindow(IntPtr hWnd);
@@ -216,7 +224,8 @@ namespace Microsoft {
 
             [DllImport("uxtheme.dll")]
             public static extern int DrawThemeParentBackground(IntPtr hWnd, IntPtr hdc, ref RECT pRect);
-
+            [DllImport("gdi32.dll")]
+            public static extern int SetDCBrushColor(IntPtr hDC, int color);
             [DllImport("gdi32.dll")]
             public static extern int ExcludeClipRect(IntPtr hdc, int nLeftRect, int nTopRect, int nRightRect, int nBottomRect);
 
@@ -250,9 +259,11 @@ namespace Microsoft {
             public static extern IntPtr CreateCompatibleDC([In] IntPtr hdc);
             [DllImport("gdi32.dll", EntryPoint = "CreateCompatibleBitmap")]
             public static extern IntPtr CreateCompatibleBitmap([In] IntPtr hdc, int nWidth, int nHeight);
+
             [DllImport("gdi32.dll", EntryPoint = "DeleteObject")]
             [return: MarshalAs(UnmanagedType.Bool)]
             public static extern bool DeleteObject([In] IntPtr hObject);
+
             [DllImport("gdi32.dll", EntryPoint = "DeleteDC")]
             public static extern bool DeleteDC([In] IntPtr hdc);
             public enum TernaryRasterOperations : uint {
@@ -292,10 +303,13 @@ namespace Microsoft {
                 /// </summary>
                 CAPTUREBLT = 0x40000000
             }
+
             [DllImport("gdi32.dll", EntryPoint = "BitBlt", SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
-            public static extern bool BitBlt([In] IntPtr hdc, int nXDest, int nYDest, int nWidth, int nHeight, [In] IntPtr hdcSrc, int nXSrc, int nYSrc,
+            public static extern bool BitBlt([In] IntPtr hdc, int nXDest, int nYDest, int nWidth, int nHeight,
+                IntPtr hdcSrc, int nXSrc, int nYSrc,
                 TernaryRasterOperations dwRop);
+
             [DllImport("gdi32.dll")]
             public static extern bool StretchBlt(IntPtr hdcDest, int nXOriginDest, int nYOriginDest,
                 int nWidthDest, int nHeightDest,
@@ -304,13 +318,16 @@ namespace Microsoft {
 
             [DllImport("gdi32.dll", EntryPoint = "SelectObject")]
             public static extern IntPtr SelectObject([In] IntPtr hdc, [In] IntPtr hgdiobj);
+
             [DllImport("user32.dll")]
             public static extern bool InvalidateRect(IntPtr hWnd, [In] ref RECT lpRect, bool bErase);
+
             [DllImport("gdi32.dll")]
             public static extern uint SetPixel(IntPtr hdc, int X, int Y, uint crColor);
 
             [DllImport("user32.dll")]
             public static extern bool GetCursorPos(out POINT pt);
+
             [DllImport("user32.dll")]
             public static extern bool ScreenToClient(IntPtr hWnd, ref POINT pt);
             [DllImport("user32.dll")]
@@ -327,24 +344,26 @@ namespace Microsoft {
                 Unaware = -1,
                 Undefined = 0
             }
+
             [DllImport("user32.dll")]
             public static extern bool SetProcessDpiAwarenessContext(DpiAwarenessContext value);
+
             [DllImport("user32.dll")]
             public static extern IntPtr DispatchMessage([In] ref MSG lpmsg);
+
             [DllImport("user32.dll")]
             public static extern bool TranslateMessage([In] ref MSG lpMsg);
+
             [DllImport("user32.dll")]
-            public static extern Int32 GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin,
-               uint wMsgFilterMax);
+            public static extern Int32 GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+
             [DllImport("user32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
-            [return: MarshalAs(UnmanagedType.Bool)]
             public static extern bool DestroyWindow(IntPtr hwnd);
-            [DllImport("user32.dll", SetLastError = true, EntryPoint = "CreateWindowExA", CharSet=CharSet.Ansi)]
-            public static extern IntPtr CreateWindowExA(
+
+            [DllImport("user32.dll", SetLastError = true, EntryPoint = "CreateWindowExW", CharSet=CharSet.Unicode)]
+            public static extern IntPtr CreateWindowExW(
                WindowStylesEx dwExStyle,
-               [MarshalAs(UnmanagedType.LPStr)]
                string lpClass,
-               [MarshalAs(UnmanagedType.LPStr)]
                string lpWindowName,
                WindowStyles dwStyle,
                int x,
@@ -355,8 +374,8 @@ namespace Microsoft {
                IntPtr hMenu,
                IntPtr hInstance,
                IntPtr lpParam);
-            
-            [DllImport("user32.dll", CharSet = CharSet.Ansi)]
+
+            [DllImport("user32.dll", CharSet = CharSet.Auto)]
             public static extern IntPtr CreateMenu();
 
             [DllImport("user32.dll", CharSet = CharSet.Unicode)]
@@ -416,7 +435,7 @@ namespace Microsoft {
             public static extern IntPtr GetWindowDC(IntPtr hwnd);
 
             [DllImport("user32.dll")]
-            public static extern IntPtr GetDCEx(IntPtr hWnd, IntPtr hrgnClip, DeviceContextValues flags);
+            public static extern IntPtr GetDCEx(IntPtr hWnd, IntPtr hrgnClip, [MarshalAs(UnmanagedType.U4)] DeviceContextValues flags);
 
             [DllImport("user32.dll")]
             public static extern bool ReleaseDC(IntPtr hwnd, IntPtr hdc);
@@ -435,6 +454,20 @@ namespace Microsoft {
 
             [DllImport("user32.dll")]
             public static extern int GetSystemMetricsForDpi(int nIndex, uint dpi);
+
+            public const int SWP_NOSIZE = 0x0001;
+            public const int SWP_NOMOVE = 0x0002;
+            public const int SWP_NOZORDER = 0x0004;
+            public const int SWP_NOREDRAW = 0x0008;
+            public const int SWP_NOACTIVATE = 0x0010;
+            public const int SWP_FRAMECHANGED = 0x0020; /* The frame changed: send WM_NCCALCSIZE */
+            public const int SWP_SHOWWINDOW = 0x0040;
+            public const int SWP_HIDEWINDOW = 0x0080;
+            public const int SWP_NOCOPYBITS = 0x0100;
+            public const int SWP_NOOWNERZORDER = 0x0200; /* Don't do owner Z ordering */
+            public const int SWP_NOSENDCHANGING = 0x0400; /* Don't send WM_WINDOWPOSCHANGING */
+            public const int SWP_DRAWFRAME = SWP_FRAMECHANGED;
+            public const int SWP_NOREPOSITION = SWP_NOOWNERZORDER;
 
             [DllImport("user32.dll", EntryPoint = "SetWindowPos")]
             public static extern IntPtr SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int Y, int cx, int cy, int wFlags);
@@ -465,10 +498,12 @@ namespace Microsoft {
             public const int DT_RTLREADING = 0x00020000;
             public const int DT_WORD_ELLIPSIS = 0x00040000;
 
-            [DllImport("user32.dll")]
-            public static extern int DrawText(IntPtr hDC, string lpString, int nCount, ref RECT lpRect, uint uFormat);
+            [DllImport("user32.dll", CharSet=CharSet.Unicode)]
+            public static extern int DrawTextW(IntPtr hDC, string lpString, int nCount, ref RECT lpRect, uint uFormat);
+
             [DllImport("user32.dll")]
             public static extern int FillRect(IntPtr hDC, [In] ref RECT lprc, IntPtr hbr);
+
             [DllImport("user32.dll")]
             public static extern int FrameRect(IntPtr hDC, [In] ref RECT lprc, IntPtr hbr);
             [DllImport("user32.dll")]
@@ -505,29 +540,23 @@ namespace Microsoft {
 
             [DllImport("user32.dll")]
             public static extern bool RedrawWindow(IntPtr hWnd, IntPtr lprcUpdate, IntPtr hrgnUpdate, int flags);
+            [DllImport("user32.dll")]
+            public static extern bool RedrawWindow(IntPtr hWnd, ref RECT lprcUpdate, IntPtr hrgnUpdate, int flags);
 
             [DllImport("user32.dll")]
             public static extern IntPtr LoadCursor(IntPtr hInstance, int lpCursorName);
-            [DllImport("user32.dll", SetLastError = true, EntryPoint = "RegisterClassExA", CharSet = CharSet.Ansi)]
-            public static extern UInt16 RegisterClassExA([In] ref WNDCLASSEX lpwcx);
+
+            [DllImport("user32.dll", SetLastError = true, EntryPoint = "RegisterClassExW", CharSet = CharSet.Unicode)]
+            public static extern UInt16 RegisterClassExW(ref WNDCLASSEX lpwcx);
+
             [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Ansi)]
             public static extern Boolean GetClassInfoEx(IntPtr hInstance, string lpClassName, ref WNDCLASSEX lpWndClass);
-            [DllImport("kernel32.dll", CharSet = CharSet.Ansi)]
+
+            [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
             public static extern IntPtr GetModuleHandle(string lpModuleName);
-            [DllImport("user32.dll", SetLastError = true, EntryPoint = "SetWindowTextA", CharSet = CharSet.Unicode)]
-            public static extern bool SetWindowTextA(IntPtr hwnd, [MarshalAs(UnmanagedType.LPTStr)] String lpString);
 
-            [DllImport("user32.dll", SetLastError = true, EntryPoint = "SetWindowTextA", CharSet = CharSet.Unicode)]
-            public static extern int GetWindowTextLength(IntPtr hwnd);
-
-            [DllImport("user32.dll", SetLastError = true, EntryPoint = "GetWindowText", CharSet = CharSet.Unicode)]
-            static extern bool GetWindowText(IntPtr hwnd, StringBuilder lpString, int cc);
-            public static string GetWindowText(IntPtr hWnd) {
-                int cc = GetWindowTextLength(hWnd);
-                StringBuilder sb = new StringBuilder(cc + 1);
-                GetWindowText(hWnd, sb, sb.Capacity);
-                return sb.ToString();
-            }
+            [DllImport("user32.dll", SetLastError = true, EntryPoint = "SetWindowTextW", CharSet = CharSet.Unicode)]
+            public static extern bool SetWindowTextW(IntPtr hwnd, [MarshalAs(UnmanagedType.LPTStr)] String lpString);
 
             public enum WindowLongFlags : int {
                 GWL_EXSTYLE = -20,
@@ -1245,7 +1274,7 @@ namespace Microsoft {
 
         public struct POINT {
             public Int32 x;
-            public Int32 Y;
+            public Int32 y;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -1267,7 +1296,7 @@ namespace Microsoft {
 
         public delegate IntPtr WndProc(IntPtr hWnd, WM msg, IntPtr wParam, IntPtr lParam);
 
-        [StructLayout(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         unsafe public struct WNDCLASSEX {
             [MarshalAs(UnmanagedType.U4)]
             public int cbSize;
@@ -1281,7 +1310,6 @@ namespace Microsoft {
             public IntPtr hCursor;
             public IntPtr hbrBackground;
             public IntPtr lpszMenuName;
-            [MarshalAs(UnmanagedType.LPStr)]
             public string lpszClassName;
             public IntPtr hIconSm;
         }
@@ -1432,6 +1460,12 @@ namespace Microsoft {
             /// </summary>
             /// <remarks>Reserved; do not use (it is documented on Windows CE GetDCEx function on MSDN).</remarks>
             DCX_VALIDATE = 0x00200000,
+
+            /// <summary>
+            /// Undocumented, something internal related to WM_NCPAINT.
+            /// </summary>
+            /// <remarks>Internal; do not use</remarks>
+            DCX_NODELETERGN = 0x00040000,
         }
 
         [Flags]
@@ -1472,6 +1506,18 @@ namespace Microsoft {
             }
             public int Width => Right - Left;
             public int Height => Bottom - Top;
+            public void Inflate(int x, int y) {
+                Left -= x;
+                Right += x;
+                Top -= y;
+                Bottom += y;
+            }
+            public void Offset(int x, int y) {
+                Left += x;
+                Top += y;
+                Right += x;
+                Bottom += y;
+            }
         }
 
         public enum WM : uint {
@@ -2207,8 +2253,9 @@ namespace Microsoft {
             NCMOUSEHOVER = 0x02A0,
             NCMOUSELEAVE = 0x02A2,
             WTSSESSION_CHANGE = 0x02B1,
-            TABLET_FIRST = 0x02c0,
-            TABLET_LAST = 0x02df,
+            TABLET_FIRST = 0x02C0,
+            TABLET_LAST = 0x02DF,
+            DPICHANGED = 0x02E0,
             CUT = 0x0300,
             COPY = 0x0301,
             PASTE = 0x0302,
@@ -2247,6 +2294,8 @@ namespace Microsoft {
             APP = 0x8000,
             USER = 0x0400,
             WINMM = USER + 0x04,
+            NCUAHDRAWCAPTION = 0x00AE,
+            NCUAHDRAWFRAME = 0x00AF,
         }
     }
 }

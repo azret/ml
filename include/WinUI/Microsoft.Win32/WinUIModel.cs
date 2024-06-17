@@ -1,7 +1,7 @@
 ﻿using System;
 
 namespace Microsoft.Win32 {
-    public class WinUIModel : IDisposable, IWinUIModel {
+    public class WinUIModel : IDisposable, IChromeUIModel {
         object _WinUILock = new object();
         IntPtr[] _WinUIHandles = null;
 

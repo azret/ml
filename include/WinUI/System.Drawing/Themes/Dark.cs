@@ -1,7 +1,9 @@
 ﻿namespace System.Drawing {
     using System;
+    using System.Runtime.Versioning;
     using System.Threading;
 
+    [SupportedOSPlatform("windows")]
     public class Dark : ITheme {
         public readonly int ThreadId = Thread.CurrentThread.ManagedThreadId;
         class _Fonts {
@@ -23,6 +25,9 @@
             public readonly Color LightLine = Color.FromArgb(66, 66, 66);
             public readonly Color DarkLine = Color.FromArgb(54, 54, 54);
             public readonly Color TitleBar = Color.FromArgb(32, 32, 32);
+            public readonly Color TitleText = Color.FromArgb(0xFF, 0xFF, 0xFF);
+            public readonly Color ChromeClose = Color.FromArgb(196, 43, 28);
+            public readonly Color ChromeClosePressed = Color.FromArgb(181, 43, 30);
         }
         _Colors Colors = new _Colors();
         class _Brushes {
@@ -34,6 +39,7 @@
             public readonly Brush C;
             public readonly Brush D;
             public readonly Brush E;
+            public readonly Brush TitleBar;
             public _Brushes(_Colors colors) {
                 Colors = colors;
                 Background = new SolidBrush(Colors.Background);
@@ -43,6 +49,7 @@
                 C = new SolidBrush(Colors.C);
                 D = new SolidBrush(Colors.D);
                 E = new SolidBrush(Colors.E);
+                TitleBar = new SolidBrush(Colors.TitleBar);
             }
         }
         _Brushes Brushes;
@@ -118,6 +125,12 @@
                     return Colors.LightLine;
                 case ThemeColor.TitleBar:
                     return Colors.TitleBar;
+                case ThemeColor.TitleText:
+                    return Colors.TitleText;
+                case ThemeColor.ChromeClose:
+                    return Colors.ChromeClose;
+                case ThemeColor.ChromeClosePressed:
+                    return Colors.ChromeClosePressed;
             }
             throw new NotImplementedException();
         }
@@ -140,6 +153,8 @@
                     return Brushes.D;
                 case ThemeColor.E:
                     return Brushes.E;
+                case ThemeColor.TitleBar:
+                    return Brushes.TitleBar;
             }
             throw new NotImplementedException();
         }

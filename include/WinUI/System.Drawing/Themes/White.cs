@@ -22,6 +22,8 @@
             public readonly Color E = Color.White;
             public readonly Color DarkLine = Color.FromArgb(177, 177, 177);
             public readonly Color LightLine = Color.FromArgb(250, 250, 250);
+            public readonly Color TitleBar = Color.FromArgb(255, 255, 255);
+            public readonly Color TitleText = Color.FromArgb(178, 178, 178);
         }
         _Colors Colors = new _Colors();
         class _Brushes {
@@ -115,6 +117,10 @@
                     return Colors.DarkLine;
                 case ThemeColor.LightLine:
                     return Colors.LightLine;
+                case ThemeColor.TitleBar:
+                    return Colors.TitleBar;
+                case ThemeColor.TitleText:
+                    return Colors.TitleText;
             }
             throw new NotImplementedException();
         }

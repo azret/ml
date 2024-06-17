@@ -169,6 +169,7 @@ public static partial class std {
                 nCreationDisposition = CreationDisposition.OpenExisting;
                 break;
             case "w":
+            case "wb":
                 dwDesiredAccess = GENERIC_WRITE;
                 nCreationDisposition = CreationDisposition.CreateAlways;
                 break;
@@ -193,7 +194,9 @@ public static partial class std {
         return hFile;
     }
 
+    public unsafe static int fwrite(byte val, IntPtr hFile) { return fwrite(&val, sizeof(byte), 1, hFile); }
     public unsafe static int fwrite(byte[] _Buffer, int count, IntPtr hFile) { fixed (void* ptr = _Buffer) { return fwrite(ptr, sizeof(byte), count, hFile); } }
+    public unsafe static int fwrite(float[] _Buffer, int count, IntPtr hFile) { fixed (void* ptr = _Buffer) { return fwrite(ptr, sizeof(float), count, hFile); } }
     public unsafe static int fwrite(void* _Buffer, int _ElementSize, int _ElementCount, IntPtr hFile) {
         int nNumberOfBytesToWrite = _ElementSize * _ElementCount;
         if (nNumberOfBytesToWrite == 0) {

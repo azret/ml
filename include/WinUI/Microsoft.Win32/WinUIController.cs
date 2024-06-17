@@ -16,12 +16,12 @@
         }
         public TViewModel Model { get => _model; }
         public virtual void OnShow(IWinUI winUI) {
-            if (_model is IWinUIModel winUIModel && winUI.Handle != IntPtr.Zero) winUIModel.AddWinUIClient(winUI.Handle);
+            if (_model is IChromeUIModel winUIModel && winUI.Handle != IntPtr.Zero) winUIModel.AddWinUIClient(winUI.Handle);
             if (_options.IsUnMuteModelOnOpen() && _model is IThreadProc threadProc) { threadProc.UnMute(); }
         }
         public bool IsDisposed { get => (_model is WinUIModel model) ? model.IsDisposed : false; }
         public virtual void OnClose(IWinUI winUI) {
-            if (_model is IWinUIModel winUIModel && winUI.Handle != IntPtr.Zero) winUIModel.RemoveWinUIClient(winUI.Handle);
+            if (_model is IChromeUIModel winUIModel && winUI.Handle != IntPtr.Zero) winUIModel.RemoveWinUIClient(winUI.Handle);
             if (_options.IsDisposeModelOnClose() && _model is IDisposable disp) { disp.Dispose(); }
         }
         public virtual void OnKeyDown(IWinUI winUI, IntPtr wParam, IntPtr lParam) {
@@ -39,6 +39,5 @@
             }
         }
         public virtual void OnPaint(IWinUI winUI, Graphics g, RectangleF r) {}
-        public virtual void OnPaint(IWinUI winUI, Bitmap hMemBitmap) {}
     }
 }

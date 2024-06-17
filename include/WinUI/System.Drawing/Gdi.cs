@@ -23,6 +23,9 @@ namespace System.Drawing {
         public static void DrawPaper(Graphics g, RectangleF r, ITheme theme, byte Xscale, byte Yscale) {
             var PixelOffsetMode = g.PixelOffsetMode;
             g.PixelOffsetMode = Drawing2D.PixelOffsetMode.None;
+
+            g.FillRectangle(theme.GetBrush(ThemeColor.Background), r);
+
             var pen = theme.GetPen(ThemeColor.LightLine);
             int n = 0;
             for (float x = r.Left; x < r.Right; x += Xscale) {
@@ -612,7 +615,8 @@ namespace System.Drawing {
                         var pen = new Pen(brush, penWidth);
                         g.DrawCurve(
                             pen,
-                            dots);
+                            dots,
+                            tension: 0.5f);
                         pen.Dispose();
                     }
                 }

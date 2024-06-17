@@ -475,7 +475,7 @@
             this.I = (uint)I;
             this.O = (uint)O;
 
-            _Weight = new Tensor(this.O * this.I, requires_grad: true);
+            _Weight = new Tensor(checked(this.O * this.I), requires_grad: true);
 
             _Bias = bias
                 ? new Tensor(this.O, requires_grad: true)

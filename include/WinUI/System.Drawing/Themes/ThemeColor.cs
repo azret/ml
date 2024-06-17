@@ -10,6 +10,9 @@
         DarkLine,
         LightLine,
         TitleBar,
+        TitleText,
+        ChromeClose,
+        ChromeClosePressed,
     }
 
     public static class ThemeExtensions {
